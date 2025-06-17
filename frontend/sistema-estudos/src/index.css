@@ -1,0 +1,309 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* Paleta otimizada para estudantes Gen Z/Alpha */
+    --color-primary: 59 130 246;    /* Azul Vibrante (#3B82F6) */
+    --color-success: 16 185 129;    /* Verde Dinâmico (#10B981) */
+    --color-warning: 250 204 21;    /* Amarelo Energético (#FACC15) */
+    --color-purple: 139 92 246;     /* Roxo Moderno (#8B5CF6) */
+    --color-error: 239 68 68;       /* Vermelho Suave (#EF4444) */
+    --color-bg: 248 250 252;        /* Fundo Neutro Claro (#F8FAFC) */
+    --color-bg-dark: 30 41 59;      /* Fundo Dark (#1E293B) */
+
+    --sidebar-background: var(--color-bg);
+    --sidebar-foreground: 240 10% 20%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 6% 90%;
+    --sidebar-accent-foreground: 240 10% 20%;
+    --sidebar-border: 220 10% 85%;
+    --sidebar-ring: 217.2 91.2% 65%;
+
+    --animation-duration-slow: 1.5s;
+    --animation-duration-medium: 0.75s;
+    --animation-duration-fast: 0.3s;
+    --progress-animation-duration: 0.5s;
+  }
+
+  .dark {
+    --sidebar-background: rgb(var(--color-bg-dark));
+    --sidebar-foreground: 240 10% 95%;
+    --sidebar-primary: 224.3 86% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 6% 15%;
+    --sidebar-accent-foreground: 240 10% 95%;
+    --sidebar-border: 240 6% 20%;
+    --sidebar-ring: 217.2 91.2% 65%;
+    --animation-duration-slow: 1s;
+  }
+
+  /* Fonte ideal para leitura jovem */
+  html {
+    font-family: 'Inter', 'Nunito Sans', 'Roboto', Arial, sans-serif;
+    font-size: 18px;
+    line-height: 1.7;
+    letter-spacing: 0.01em;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: rgb(var(--color-bg));
+    color: #22223b;
+    font-family: inherit;
+    font-size: 1rem;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', 'Nunito Sans', 'Roboto', Arial, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #1e293b;
+    margin-bottom: 0.5em;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+    line-height: 1.2;
+  }
+  h2 {
+    font-size: 1.6rem;
+    line-height: 1.3;
+  }
+  h3 {
+    font-size: 1.25rem;
+    line-height: 1.4;
+  }
+
+  /* Parágrafos e listas mais legíveis */
+  p, ul, ol {
+    font-size: 1.05rem;
+    margin-bottom: 1em;
+    color: #22223b;
+  }
+
+  /* Links destacados */
+  a {
+    color: #3b82f6;
+    font-weight: 600;
+    text-decoration: underline;
+    transition: color 0.2s;
+  }
+  a:hover {
+    color: #64f65c;
+    text-decoration: underline wavy;
+  }
+}
+
+/* Animations Turbo */
+@layer utilities {
+  @keyframes turbo-spin {
+    0% {
+      transform: rotate(0deg);
+      animation-timing-function: cubic-bezier(0.32, 0.04, 0.29, 1);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes energetic-pulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 0.9;
+    }
+  }
+
+  @keyframes loading-stripes {
+    0% { background-position: 0 0; }
+    100% { background-position: 40px 0; }
+  }
+  @keyframes ping-fast {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(2); opacity: 0; }
+  }
+  .animate-ping-fast {
+    animation: ping-fast 1.5s ease-out infinite;
+  }
+
+  .animate-turbo-spin {
+    animation: turbo-spin var(--animation-duration-medium) linear infinite;
+    will-change: transform;
+  }
+
+  .animate-energetic-pulse {
+    animation: energetic-pulse 1s ease infinite;
+  }
+
+  .tap-feedback:active {
+    transform: scale(0.98);
+    transition: transform 50ms;
+  }
+
+  .transition-turbo {
+    transition-duration: 100ms;
+    transition-timing-function: cubic-bezier(0.16, 0.84, 0.44, 1);
+  }
+  
+  .transition-snap {
+    transition-duration: 50ms;
+  }
+
+  .loading-stripes {
+    background-image: linear-gradient(
+      45deg,
+      rgba(255,255,255,0.15) 25%,
+      transparent 25%,
+      transparent 50%,
+      rgba(255,255,255,0.15) 50%,
+      rgba(255,255,255,0.15) 75%,
+      transparent 75%,
+      transparent
+    );
+    background-size: 40px 40px;
+    animation: loading-stripes 0.5s linear infinite;
+  }
+}
+
+/* Animacao XP float */
+@keyframes xp-float {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8) rotate(-10deg);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1) rotate(2deg);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-40px) scale(1) rotate(-2deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(0.8) rotate(8deg);
+  }
+}
+.xp-float-anim {
+  animation: xp-float 1.5s cubic-bezier(.4,1.6,.6,1) forwards;
+  pointer-events: none;
+  z-index: 9999;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #facc15; /* amarelo */
+  text-shadow: 0 2px 8px #0002;
+}
+
+/* Exemplo para o container principal (em seu CSS global) */
+@media (min-width: 768px) {
+  .main-content {
+    margin-left: 208px; /* igual ao md:w-52 */
+  }
+}
+@media (min-width: 1024px) {
+  .main-content {
+    margin-left: 192px; /* igual ao lg:w-48 */
+  }
+}
+@media (min-width: 1280px) {
+  .main-content {
+    margin-left: 176px; /* igual ao xl:w-44 */
+  }
+}
+
+/* Anel giratório turbo com paleta otimizada */
+.rainbow-ring-turbo {
+  position: absolute;
+  inset: -0.25rem;
+  border-radius: 9999px;
+  width: 110%;
+  height: 110%;
+  z-index: 1;
+  pointer-events: none;
+  background: conic-gradient(
+    #3b82f6 0deg,     /* Azul Vibrante */
+    #8b5cf6 36deg,    /* Roxo Moderno */
+    #10b981 72deg,    /* Verde Dinâmico */
+    #facc15 108deg,   /* Amarelo Energético */
+    #f59e0b 144deg,   /* Laranja */
+    #ef4444 180deg,   /* Vermelho Suave */
+    #3b82f6 216deg,   /* Azul Vibrante */
+    #8b5cf6 252deg,   /* Roxo Moderno */
+    #10b981 288deg,   /* Verde Dinâmico */
+    #facc15 324deg,   /* Amarelo Energético */
+    #3b82f6 360deg    /* Azul Vibrante (fechando ciclo) */
+  );
+  mask-image: radial-gradient(circle, transparent 65%, black 67%);
+  -webkit-mask-image: radial-gradient(circle, transparent 65%, black 67%);
+  animation: turbo-spin var(--animation-duration-medium) linear infinite;
+  will-change: transform;
+  opacity: 0.92;
+}
+
+/* Micro-interações para engajamento */
+.hover-grow {
+  transition-duration: 100ms;
+  transition-timing-function: cubic-bezier(0.16, 0.84, 0.44, 1);
+  transform: scale(1);
+}
+.hover-grow:hover {
+  transform: scale(1.05);
+}
+.hover-grow:active {
+  transform: scale(0.95);
+}
+
+/* Feedback visual imediato para ações */
+.press-feedback:active {
+  transform: translateY(1px);
+}
+
+/* Ajustes para mobile - ainda mais rápidos */
+@media (max-width: 768px) {
+  :root {
+    --radius: 0.8rem;
+    --animation-duration-slow: 1s;
+    --animation-duration-medium: 0.5s;
+    --animation-duration-fast: 0.2s;
+  }
+
+  .rainbow-ring-turbo {
+    width: 105%;
+    height: 105%;
+    inset: -0.15rem;
+  }
+}
+
+/* Sidebar scrollbar styling */
+.sidebar-scrollable::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-thumb {
+  background: #2563eb; /* azul-600 */
+  border-radius: 6px;
+  border: 2px solid #1e40af; /* azul-700 */
+}
+
+.sidebar-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #1d4ed8; /* azul-700 mais escuro */
+}
+
+/* Firefox */
+.sidebar-scrollable {
+  scrollbar-width: thin;
+  scrollbar-color: #2563eb #1e40af;
+}
+

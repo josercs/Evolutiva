@@ -1,0 +1,937 @@
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { toast } from "react-toastify";
+import { ModalQuiz } from "../components/ModalQuiz";
+import { MapaMental } from "../components/MapaMental";
+import MapaMentalAvancado from "../components/MapaMentalAvancado";
+import { PomodoroWidget } from "../components/PomodoroWidget";
+import { AcoesFlutuantes } from "../components/AcoesFlutuantes";
+import { BarraXPStreak } from "../components/BarraXPStreak";
+import { DicasEstudo } from "../components/DicasEstudo";
+import { CaixaFeynman } from "../components/CaixaFeynman";
+import AnotacoesPerguntas from "../components/AnotacoesPerguntas"; // Corrigido: importação default
+
+type ConteudoHtml = {
+  subject: string;
+  topic: string;
+  content_html: string;
+  materia: string;
+  related_topics?: string[];
+  difficulty?: "basic" | "intermediate" | "advanced";
+  estimated_time?: number;
+  subtopics?: any; // Adicionado para suportar subtopics opcionais
+};
+
+const studyTips = [
+  "Faça anotações enquanto lê o conteúdo - escrever ajuda a fixar melhor.",
+  "Explique o que aprendeu com suas próprias palavras (técnica Feynman).",
+  "Resolva exercícios sobre o tema após estudar para aplicar o conhecimento.",
+  "Use mapas mentais para organizar visualmente as ideias principais.",
+  "Faça pausas de 5 minutos a cada 25-30 minutos de estudo (Técnica Pomodoro).",
+  "Revise o conteúdo após 1 dia, 1 semana e 1 mês para melhor retenção.",
+  "Relacione o novo conteúdo com algo que você já sabe para criar conexões.",
+  "Estude em um ambiente tranquilo e sem distrações para melhor concentração.",
+];
+
+const motivationalPhrases = [
+  "Você está indo muito bem! 🚀",
+  "Continue firme, cada passo conta! 💪",
+  "Errar faz parte do aprendizado. Bora pra próxima! 😉",
+  "Seu futuro agradece o esforço de hoje! 🌟",
+  "A cada resposta, você fica mais perto do seu objetivo! 🏆",
+  "Foco, força e café! ☕",
+  "Você é capaz de aprender qualquer coisa! 🤩",
+  "Não desista, você está quase lá! 🔥",
+];
+
+const API_BASE_URL = "http://localhost:5000";
+
+/**
+ * Página principal de exibição de conteúdo de estudo.
+ *
+ * Esta página exibe o conteúdo HTML de um tópico, permitindo ao usuário:
+ * - Visualizar o conteúdo completo, resumo ou suas próprias anotações (abas).
+ * - Utilizar recursos interativos como marcação de texto, cópia, text-to-speech, quiz automático, mapa mental e Pomodoro.
+ * - Gerenciar anotações e perguntas pessoais, com salvamento local.
+ * - Receber feedback de IA para explicações (Técnica Feynman) e quizzes.
+ * - Visualizar dicas de estudo, links úteis (vídeo aula, exercícios, Wikipedia) e barra de progresso de XP/streak.
+ * - Alternar entre mapa mental simples (extraído do HTML) ou avançado (gerado por IA).
+ *
+ * Principais estados e funcionalidades:
+ * - Carrega o conteúdo via API ao montar.
+ * - Gerencia XP e streak do usuário, com persistência em localStorage.
+ * - Permite revisão espaçada, marcação de texto, anotações e perguntas customizadas.
+ * - Integração com APIs para geração de quiz, feedback e mapa mental.
+ * - Oferece navegação amigável, microinterações e feedback visual/sonoro.
+ *
+ * @component
+ * @returns {JSX.Element} Página de conteúdo de estudo com recursos interativos.
+ */
+const PaginaConteudo = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [conteudo, setConteudo] = useState<ConteudoHtml | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showTips, setShowTips] = useState(false);
+  const [activeTab, setActiveTab] = useState<"content" | "summary" | "qa">("content");
+  const [userNotes, setUserNotes] = useState("");
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [currentQuestion, setCurrentQuestion] = useState("");
+  const [pomodoro, setPomodoro] = useState({ time: 1500, running: false, mode: "work" });
+  const [xp, setXp] = useState(Number(localStorage.getItem("xp") || 0));
+  const [streak, setStreak] = useState(Number(localStorage.getItem("streak") || 0));
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+  const [showMindMap, setShowMindMap] = useState(false);
+  const [ttsActive, setTtsActive] = useState(false);
+  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: number]: number }>({});
+  const [showResults, setShowResults] = useState(false);
+  const [feynmanFeedback, setFeynmanFeedback] = useState<string>("");
+  const [feynmanText, setFeynmanText] = useState<string>("");
+  const [quizFeedback, setQuizFeedback] = useState<string>("");
+  const [currentQuizIdx, setCurrentQuizIdx] = useState(0);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [modoMapaAvancado, setModoMapaAvancado] = useState(false);
+  const [mapaMentalAuto, setMapaMentalAuto] = useState<any>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+
+  // Função para selecionar resposta no quiz
+  const handleSelect = useCallback((questionIdx: number, optionIdx: number) => {
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [questionIdx]: optionIdx,
+    }));
+  }, []);
+
+  // Função para submeter quiz e mostrar resultado, atualizar XP e streak
+  const handleSubmitQuiz = () => {
+    setShowResults(true);
+    // Calcula acertos
+    const correctCount = quizQuestions.filter(
+      (q, idx) => q.options && selectedAnswers[idx] !== undefined && q.options[selectedAnswers[idx]] === q.answer
+    ).length;
+    // Atualiza XP e streak se acertou pelo menos metade
+    if (quizQuestions.length > 0 && correctCount >= Math.ceil(quizQuestions.length / 2)) {
+      setXp((prev) => {
+        const newXp = prev + correctCount * 10;
+        localStorage.setItem("xp", String(newXp));
+        return newXp;
+      });
+      setStreak((prev) => {
+        const newStreak = prev + 1;
+        localStorage.setItem("streak", String(newStreak));
+        return newStreak;
+      });
+    } else {
+      setStreak(0);
+      localStorage.setItem("streak", "0");
+    }
+  };
+
+  useEffect(() => {
+    const fetchContent = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`http://localhost:5000/api/conteudo_html/${id}`);
+        if (!response.ok) throw new Error("Conteúdo não encontrado");
+        const data = await response.json();
+        setConteudo(data);
+
+        // Carrega notas salvas localmente
+        const savedNotes = localStorage.getItem(`notes-${id}`);
+        if (savedNotes) setUserNotes(savedNotes);
+
+        // Carrega perguntas salvas
+        const savedQuestions = localStorage.getItem(`questions-${id}`);
+        if (savedQuestions) setQuestions(JSON.parse(savedQuestions));
+      } catch (error) {
+        toast.error("Erro ao carregar o conteúdo");
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchContent();
+  }, [id]);
+
+  // --- REPETIÇÃO ESPAÇADA ---
+  useEffect(() => {
+    if (conteudo) {
+      // Sugestão de revisão: 1, 7, 30 dias após o primeiro acesso
+      const key = `review-${id}`;
+      let review = JSON.parse(localStorage.getItem(key) || "null");
+      if (!review) {
+        review = { first: Date.now(), revisoes: [] };
+        localStorage.setItem(key, JSON.stringify(review));
+      }
+    }
+  }, [conteudo, id]);
+
+  // --- POMODORO ---
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (pomodoro.running && pomodoro.time > 0) {
+      timer = setTimeout(() => setPomodoro(p => ({ ...p, time: p.time - 1 })), 1000);
+    }
+    if (pomodoro.time === 0) {
+      const isFoco = pomodoro.mode === "work";
+      setPomodoro(p => ({
+        ...p,
+        running: false,
+        time: isFoco ? 300 : 1500,
+        mode: isFoco ? "break" : "work"
+      }));
+
+      toast.info(isFoco ? "Hora do descanso! 🧘‍♂️" : "Hora de voltar ao foco! 💪");
+      playPomodoroSound(isFoco);
+      if (isFoco) {
+        setXp(prev => {
+          const novo = prev + 15;
+          localStorage.setItem("xp", String(novo));
+          showXPFloat("+15 XP por focar!");
+          return novo;
+        });
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [pomodoro]);
+
+  // --- XP e STREAK ---
+  useEffect(() => {
+    localStorage.setItem("xp", String(xp));
+    localStorage.setItem("streak", String(streak));
+  }, [xp, streak]);
+
+  // --- GERAÇÃO DE QUIZ (exemplo usando Gemini API) ---
+  const generateQuiz = async () => {
+    setShowQuiz(true);
+    setQuizLoading(true); // Inicia o loading
+    try {
+      const res = await fetch(`http://localhost:5000/api/generate_quiz/${id}`);
+      if (!res.ok) throw new Error("Erro ao buscar quiz");
+      const data = await res.json();
+      setQuizQuestions(data.questions || []);
+    } catch (err) {
+      toast.error("Erro ao gerar quiz automático");
+      setQuizQuestions([]);
+    } finally {
+      setQuizLoading(false); // Finaliza o loading
+    }
+  };
+
+  const handleCopy = () => {
+    if (conteudo?.content_html) {
+      navigator.clipboard.writeText(
+        document.getElementById("conteudo-html")?.innerText || ""
+      );
+      toast.success("Conteúdo copiado para a área de transferência!");
+    }
+  };
+
+  const handleHighlight = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      toast.info("Selecione um trecho do conteúdo para marcar");
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const contentDiv = mainContentRef.current;
+
+    if (!contentDiv || !contentDiv.contains(range.commonAncestorContainer)) {
+      toast.warning("Selecione apenas dentro do conteúdo principal");
+      return;
+    }
+
+    const span = document.createElement("span");
+    span.className = "highlighted-text";
+    span.style.backgroundColor = "#fff59d";
+    span.style.borderRadius = "4px";
+    span.style.padding = "0 2px";
+    span.style.cursor = "pointer";
+    span.title = "Clique para remover a marcação";
+
+    span.onclick = (e) => {
+      e.stopPropagation();
+      const parent = span.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(span.textContent || ""), span);
+      }
+    };
+
+    try {
+      range.surroundContents(span);
+      selection.removeAllRanges();
+      toast.success("Texto marcado! Clique na marcação para remover.");
+    } catch {
+      toast.error("Selecione um trecho menor ou completo dentro de um parágrafo");
+    }
+  };
+
+  const handleAddNote = () => {
+    if (userNotes.trim()) {
+      localStorage.setItem(`notes-${id}`, userNotes);
+      toast.success("Nota salva com sucesso!");
+    }
+  };
+
+  const handleAddQuestion = () => {
+    if (currentQuestion.trim()) {
+      const newQuestions = [...questions, currentQuestion];
+      setQuestions(newQuestions);
+      localStorage.setItem(`questions-${id}`, JSON.stringify(newQuestions));
+      setCurrentQuestion("");
+      toast.success("Pergunta adicionada!");
+    }
+  };
+
+  const handleRemoveQuestion = (idx: number) => {
+    const newQuestions = questions.filter((_, i) => i !== idx);
+    setQuestions(newQuestions);
+    localStorage.setItem(`questions-${id}`, JSON.stringify(newQuestions));
+  };
+
+  const generateSummary = () => {
+    if (!conteudo?.content_html) return "Resumo não disponível";
+
+    // Simulação de geração de resumo (em uma aplicação real, poderia ser uma chamada API)
+    const contentText = document.getElementById("conteudo-html")?.innerText || "";
+    const sentences = contentText.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const keySentences = sentences.filter((_, i) => i % 3 === 0).slice(0, 5);
+    return `Resumo do tópico "${conteudo.topic}":\n\n${keySentences.join(". ")}.`;
+  };
+
+  // --- TÉCNICA FEYNMAN (explicação com IA) ---
+  const handleFeynmanFeedback = async (texto: string) => {
+    setFeynmanFeedback("Carregando feedback...");
+    try {
+      const res = await fetch("http://localhost:5000/api/gemini_feynman", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texto, conteudo: conteudo?.content_html }),
+      });
+      if (!res.ok) throw new Error("Erro ao buscar feedback");
+      const data = await res.json();
+      setFeynmanFeedback(data.feedback || "Feedback recebido!");
+    } catch (err) {
+      setFeynmanFeedback("Erro ao obter feedback da IA");
+    }
+  };
+
+  // --- TEXT-TO-SPEECH ---
+  const handleTTS = () => {
+    if (!ttsActive && conteudo) {
+      const utter = new window.SpeechSynthesisUtterance(
+        document.getElementById("conteudo-html")?.innerText || ""
+      );
+      utter.lang = "pt-BR";
+      window.speechSynthesis.speak(utter);
+      setTtsActive(true);
+      utter.onend = () => setTtsActive(false);
+    } else {
+      window.speechSynthesis.cancel();
+      setTtsActive(false);
+    }
+  };
+
+  // Após mostrar o resultado do quiz:
+  useEffect(() => {
+    if (showResults && quizQuestions.length > 0) {
+      fetch("http://localhost:5000/api/quiz_feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questions: quizQuestions,
+          answers: Object.entries(selectedAnswers).map(
+            ([qIdx, oIdx]) => quizQuestions[Number(qIdx)].options[oIdx as any]
+          ),
+          conteudo: conteudo?.content_html,
+        }),
+      })
+        .then(res => res.json())
+        .then(data => setQuizFeedback(data.feedback || ""))
+        .catch(() => setQuizFeedback("Erro ao obter feedback da IA"));
+    }
+  }, [showResults]);
+
+  // 🔊 Função: Scroll automático para próxima pergunta
+  const scrollToNext = () => {
+    setTimeout(() => {
+      const quizContainer = document.querySelector("#quiz-container");
+      if (quizContainer) quizContainer.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 300);
+  };
+
+  // 🔊 Função: Toca som de acerto/erro
+  const playFeedbackSound = (isCorrect: boolean) => {
+    const sound = new Audio(isCorrect ? "/sounds/correct.mp3" : "/sounds/error.mp3");
+    sound.volume = 0.4;
+    sound.play().catch(() => {});
+  };
+
+  // 🔊 Função: Mostra "+XP" flutuante animado
+  const showXPFloat = (text: string = "+10 XP!") => {
+    const xpTag = document.createElement("div");
+    xpTag.textContent = text;
+    xpTag.className = "fixed text-yellow-500 font-bold text-lg animate-bounce z-50";
+    xpTag.style.top = "80px";
+    xpTag.style.right = "80px";
+    document.body.appendChild(xpTag);
+    setTimeout(() => xpTag.remove(), 1500);
+  };
+
+  // Função: Som do Pomodoro (fim/início)
+  const playPomodoroSound = (isFocusDone: boolean) => {
+    const audio = new Audio(isFocusDone ? "/sounds/pomodoro-end.mp3" : "/sounds/pomodoro-start.mp3");
+    audio.volume = 0.4;
+    audio.play().catch(() => {});
+  };
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (userNotes.trim()) localStorage.setItem(`notes-${id}`, userNotes);
+    }, 800);
+    return () => clearTimeout(timeout);
+  }, [userNotes, id]);
+
+  // Função para extrair informações do mapa mental do HTML
+  function extrairMapaMentalDoHtml(html: string, fallbackTopic: string = "Conteúdo") {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    const central =
+      doc.querySelector("h1")?.textContent?.trim() ||
+      doc.querySelector("div.text-neutral-800")?.textContent?.trim() ||
+      fallbackTopic;
+
+    let related_topics = Array.from(doc.querySelectorAll("h2, div.font-semibold"))
+      .map(el => el.textContent?.trim() || "")
+      .filter(t => t && t !== central);
+
+    const subtopics: Record<string, string[]> = {};
+    related_topics.forEach(topic => {
+      const topicEl = Array.from(doc.querySelectorAll("h2, div.font-semibold"))
+        .find(el => el.textContent?.trim() === topic);
+
+      subtopics[topic] = [];
+
+      if (topicEl) {
+        let next = topicEl.nextElementSibling;
+
+        while (next && subtopics[topic].length < 10) {
+          if (
+            ["H3", "LI", "P", "DIV"].includes(next.tagName) &&
+            next.textContent?.trim()
+          ) {
+            const txt = next.textContent.trim();
+            if (txt.length > 3 && !subtopics[topic].includes(txt)) {
+              subtopics[topic].push(txt);
+            }
+          }
+
+          if (
+            next.classList.contains("font-semibold") ||
+            next.tagName === "H2"
+          ) {
+            break;
+          }
+
+          next = next.nextElementSibling;
+        }
+
+        topicEl.querySelectorAll("ul li, ol li").forEach(li => {
+          const txt = li.textContent?.trim();
+          if (txt && txt.length > 3 && !subtopics[topic].includes(txt)) {
+            subtopics[topic].push(txt);
+          }
+        });
+      }
+    });
+
+    related_topics.forEach(topic => {
+      if (!subtopics[topic]) subtopics[topic] = [];
+    });
+
+    return { topic: central, related_topics, subtopics };
+  }
+
+  // Função para sanitizar o mapa mental
+  const sanitizeMindMap = (mindMap) => {
+    const related_topics = [...new Set(
+      (mindMap.related_topics || [])
+        .filter(t => typeof t === "string" && t.trim().length > 2 && t.trim().length < 40)
+    )];
+
+    const subtopics: Record<string, string[]> = {};
+    const forbiddenStarts = [
+      "resumo", "em resumo", "conclusão", "em síntese", "em suma", "em conclusão"
+    ];
+
+    for (const key in mindMap.subtopics) {
+      if (!key || key.trim().length < 3 || key.trim().length > 40) continue;
+
+      const cleanItems = (mindMap.subtopics[key] || [])
+        .filter(s => {
+          if (
+            typeof s !== "string" ||
+            s.trim().length <= 2 ||
+            s.trim().length >= 40 ||
+            s.trim().split(" ").length > 4 ||
+            /[.!?;:,]/.test(s) // Remove frases/resumos
+          ) return false;
+          // Remove se começar com palavras de resumo/conclusão
+          const lower = s.trim().toLowerCase();
+          return !forbiddenStarts.some(start => lower.startsWith(start));
+        });
+
+      if (cleanItems.length) {
+        subtopics[key] = [...new Set(cleanItems)] as string[];
+      }
+    }
+
+    return { topic: mindMap.topic || "Conteúdo", related_topics, subtopics };
+  };
+
+  // Efeito para buscar mapa mental da IA ou extrair do HTML
+  useEffect(() => {
+    const fetchMindMap = async () => {
+      if (!conteudo) return;
+
+      if (!showMindMap) {
+        setMapaMentalAuto(null);
+        return;
+      }
+
+      if (modoMapaAvancado) {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/generate_mindmap`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: conteudo.content_html,
+              topic: conteudo.topic,
+            }),
+          });
+
+          if (!res.ok) throw new Error("Erro ao gerar mapa mental");
+
+          const mindMap = await res.json();
+          setMapaMentalAuto(sanitizeMindMap(mindMap));
+        } catch (err) {
+          console.warn("IA falhou, extraindo do HTML", err);
+          setMapaMentalAuto(extrairMapaMentalDoHtml(conteudo.content_html));
+        }
+      } else {
+        setMapaMentalAuto(extrairMapaMentalDoHtml(conteudo.content_html));
+      }
+    };
+
+    fetchMindMap();
+  }, [conteudo, showMindMap, modoMapaAvancado]);
+
+  const truncate = (str: string, max = 40) =>
+    str.length > max ? str.slice(0, max - 3) + "..." : str;
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
+        <p className="text-lg text-gray-600">Carregando conteúdo...</p>
+      </div>
+    );
+  }
+
+  if (!conteudo) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+        <div className="bg-red-100 p-4 rounded-full mb-4">
+          <span className="text-red-500 text-3xl">⚠️</span>
+        </div>
+        <h2 className="text-xl font-bold text-gray-800 mb-2">Conteúdo não encontrado</h2>
+        <p className="text-gray-600 mb-4">
+          O conteúdo que você está tentando acessar não está disponível no momento.
+        </p>
+        <button
+          onClick={() => navigate(-1)}
+          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
+        >
+          Voltar
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto mt-4 p-4 md:p-6 bg-white rounded-lg shadow-lg relative">
+      {/* Frase motivacional no topo */}
+      <div className="mb-4 text-center">
+        <span className="inline-block px-4 py-2 rounded-full bg-gradient-to-r from-indigo-100 via-pink-100 to-yellow-100 text-indigo-700 font-semibold shadow animate-fade-in">
+          {motivationalPhrases[Math.floor(Math.random() * motivationalPhrases.length)]}
+        </span>
+      </div>
+
+      {/* Cabeçalho e navegação */}
+      <div className="mb-6">
+        <nav className="flex flex-wrap gap-2 items-center mb-4">
+          <Link
+            to={`/cursos/${encodeURIComponent(conteudo.materia)}`}
+            className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition text-gray-700"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Voltar para {conteudo.materia}
+          </Link>
+          <div className="ml-auto flex gap-2">
+            <button
+              onClick={() => setShowTips((v) => !v)}
+              className={`px-3 py-2 rounded-lg flex items-center gap-2 transition ${showTips
+                ? "bg-yellow-500 text-white"
+                : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                }`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Dicas de Estudo
+            </button>
+          </div>
+        </nav>
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full">
+              {conteudo.materia}
+            </span>
+            {conteudo.difficulty && (
+              <span
+                className={`text-xs px-2 py-1 rounded-full ${conteudo.difficulty === "basic"
+                  ? "bg-green-100 text-green-800"
+                  : conteudo.difficulty === "intermediate"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-purple-100 text-purple-800"
+                  }`}
+              >
+                {conteudo.difficulty === "basic"
+                  ? "Básico"
+                  : conteudo.difficulty === "intermediate"
+                    ? "Intermediário"
+                    : "Avançado"}
+              </span>
+            )}
+            {conteudo.estimated_time && (
+              <span className="text-xs px-2 py-1 bg-gray-100 text-gray-800 rounded-full flex items-center gap-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-3 w-3"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                ~{conteudo.estimated_time} min
+              </span>
+            )}
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {conteudo.topic}
+          </h1>
+          <h2 className="text-xl text-gray-600">{conteudo.subject}</h2>
+        </div>
+      </div>
+
+      {/* Dicas de estudo */}
+      {showTips && <DicasEstudo tips={studyTips} onClose={() => setShowTips(false)} />}
+
+      {/* Abas de navegação */}
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="flex space-x-4">
+          <button
+            onClick={() => setActiveTab("content")}
+            className={`py-3 px-4 font-medium text-sm rounded-t-lg transition ${activeTab === "content"
+              ? "text-indigo-600 border-b-2 border-indigo-600"
+              : "text-gray-500 hover:text-gray-700"
+              }`}
+          >
+            Conteúdo Completo
+          </button>
+          <button
+            onClick={() => setActiveTab("summary")}
+            className={`py-3 px-4 font-medium text-sm rounded-t-lg transition ${activeTab === "summary"
+              ? "text-indigo-600 border-b-2 border-indigo-600"
+              : "text-gray-500 hover:text-gray-700"
+              }`}
+          >
+            Resumo
+          </button>
+          <button
+            onClick={() => setActiveTab("qa")}
+            className={`py-3 px-4 font-medium text-sm rounded-t-lg transition ${activeTab === "qa"
+              ? "text-indigo-600 border-b-2 border-indigo-600"
+              : "text-gray-500 hover:text-gray-700"
+              }`}
+          >
+            Minhas Anotações
+          </button>
+        </nav>
+      </div>
+
+      {/* Conteúdo principal das abas */}
+      <div className="mb-8">
+        {activeTab === "content" && (
+          <div
+            id="conteudo-html"
+            ref={mainContentRef}
+            className="prose max-w-none prose-lg"
+            dangerouslySetInnerHTML={{ __html: conteudo.content_html }}
+          />
+        )}
+
+        {activeTab === "summary" && (
+          <div className="prose max-w-none bg-blue-50 p-6 rounded-lg">
+            <h3 className="text-xl font-bold mb-4">Resumo do Conteúdo</h3>
+            <div className="whitespace-pre-wrap">{generateSummary()}</div>
+            <div className="mt-6 p-4 bg-white rounded-lg border border-blue-200">
+              <h4 className="font-medium text-blue-800 mb-2">
+                Palavras-chave importantes:
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {conteudo.content_html
+                  .match(/\b(\w{5,})\b/g)
+                  ?.filter((_, i) => i < 15)
+                  .map((word, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm"
+                    >
+                      {word}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "qa" && (
+          <AnotacoesPerguntas
+            userNotes={userNotes}
+            setUserNotes={setUserNotes}
+            handleAddNote={handleAddNote}
+            notesRef={notesRef}
+            questions={questions}
+            currentQuestion={currentQuestion}
+            setCurrentQuestion={setCurrentQuestion}
+            handleAddQuestion={handleAddQuestion}
+            handleRemoveQuestion={handleRemoveQuestion}
+          />
+        )}
+      </div>
+
+      {/* Recursos adicionais */}
+      <div className="mt-8 p-6 bg-gray-50 rounded-xl">
+        <h3 className="text-xl font-bold mb-4 text-center text-gray-800">
+          Potencialize seu aprendizado
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <a
+            href={`https://www.youtube.com/results?search_query=explicação+${encodeURIComponent(conteudo.topic)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition flex flex-col items-center text-center"
+          >
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6 text-red-600"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <h4 className="font-medium text-gray-900 mb-1">Vídeo Aula</h4>
+            <p className="text-sm text-gray-600">
+              Assista a explicações em vídeo sobre este tópico
+            </p>
+          </a>
+          <a
+            href="https://www.todamateria.com.br/exercicios/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition flex flex-col items-center text-center"
+          >
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6 text-green-600"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <h4 className="font-medium text-gray-900 mb-1">Exercícios</h4>
+            <p className="text-sm text-gray-600">
+              Pratique com exercícios sobre este conteúdo
+            </p>
+          </a>
+          <a
+            href={`https://pt.wikipedia.org/wiki/${encodeURIComponent(conteudo.topic)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition flex flex-col items-center text-center"
+          >
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6 text-blue-600"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 005.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+              </svg>
+            </div>
+            <h4 className="font-medium text-gray-900 mb-1">Wikipedia</h4>
+            <p className="text-sm text-gray-600">
+              Consulte informações adicionais na enciclopédia livre
+            </p>
+          </a>
+        </div>
+      </div>
+
+      {/* XP e streak com efeito de conquista */}
+      <BarraXPStreak xp={xp} streak={streak} />
+
+      {/* Barra de ações flutuante refinada */}
+      <AcoesFlutuantes
+        onHighlight={handleHighlight}
+        onCopy={handleCopy}
+        onTTS={handleTTS}
+        ttsActive={ttsActive}
+        onQuiz={generateQuiz}
+        onMindMap={() => setShowMindMap(v => !v)}
+        showMindMap={showMindMap}
+      />
+
+      {/* Pomodoro com microinteração */}
+      <PomodoroWidget pomodoro={pomodoro} setPomodoro={setPomodoro} />
+    
+      {/* Botão para alternar entre mapas mentais */}
+      <div className="flex justify-center my-6">
+         {/* 
+        <button
+          className={`px-4 py-2 rounded-lg font-semibold shadow transition
+            ${modoMapaAvancado
+              ? "bg-indigo-600 text-white hover:bg-indigo-700"
+              : "bg-gray-200 text-indigo-700 hover:bg-indigo-300"
+            }`}
+          onClick={() => setModoMapaAvancado((v) => !v)}
+        >
+          {modoMapaAvancado ? "Ver mapa mental simples" : "Ver mapa mental avançado"}
+        </button>
+        */}
+      </div>
+         
+      {/* Mapa mental */}
+      {showMindMap && mapaMentalAuto && (
+        <MapaMental conteudo={mapaMentalAuto} />
+      )}
+
+      {/* Quiz rápido com animações e microinterações */}
+      {showQuiz && (
+        <ModalQuiz
+          show={showQuiz}
+          loading={quizLoading}
+          questions={quizQuestions}
+          currentIdx={currentQuizIdx}
+          selectedAnswers={selectedAnswers}
+          onSelect={handleSelect}
+          onNext={() => setCurrentQuizIdx(currentQuizIdx + 1)}
+          onSubmit={handleSubmitQuiz}
+          showResults={showResults}
+          feedback={quizFeedback}
+          onClose={() => setShowQuiz(false)}
+        />
+      )}
+      <CaixaFeynman
+        feynmanText={feynmanText}
+        setFeynmanText={setFeynmanText}
+        onCheck={handleFeynmanFeedback}
+        feedback={feynmanFeedback}
+      />
+
+      {/* Rodapé */}
+      <div className="mt-12 text-center text-sm text-gray-500">
+        <p>
+          Utilize as ferramentas disponíveis para potencializar seus estudos e se
+          preparar para provas, vestibulares e ENEM!
+        </p>
+        <p className="mt-2">
+          Tempo estimado de estudo:{" "}
+          <span className="font-medium">
+            {conteudo.estimated_time || 30} minutos
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default PaginaConteudo;
+
+// CSS utilitário para animações extras (adicione no seu CSS global ou Tailwind config):
+/*
+@keyframes spin-slow {
+  0% { transform: rotate(0deg);}
+  100% { transform: rotate(360deg);}
+}
+.animate-spin-slow {
+  animation: spin-slow 2.5s linear infinite;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0);}
+  20%, 60% { transform: translateX(-6px);}
+  40%, 80% { transform: translateX(6px);}
+}
+.animate-shake {
+  animation: shake 0.4s;
+}
+@keyframes fade-in {
+  from { opacity: 0;}
+  to { opacity: 1;}
+}
+.animate-fade-in {
+  animation: fade-in 0.7s;
+}
+*/
