@@ -3,9 +3,34 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import ProgressDashboard from '../components/ProgressDashboard';
 
+type Achievement = {
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+};
+
+type Activity = {
+  id: number;
+  type: string;
+  title: string;
+  date: string;
+};
+
+type ProgressData = {
+  userName: string;
+  totalCourses: number;
+  completedCourses: number;
+  totalLessons: number;
+  completedLessons: number;
+  studyTime: number;
+  achievements: Achievement[];
+  recentActivity: Activity[];
+};
+
 const ProgressPage = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [progressData, setProgressData] = useState(null);
+  const [progressData, setProgressData] = useState<ProgressData | null>(null);
   
   useEffect(() => {
     // Simulação de carregamento de dados de progresso da API

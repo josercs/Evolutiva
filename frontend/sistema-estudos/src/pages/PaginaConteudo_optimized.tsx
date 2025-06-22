@@ -16,6 +16,7 @@ import { useFeynman } from '../hooks/useFeynman';
 import { useTTS } from '../hooks/useTTS.tsx';
 import { useHighlighting } from '../hooks/useHighlighting';
 import { useMindMap } from '../hooks/useMindMap';
+import { useAuth } from "../hooks/useAuth"; // ajuste o caminho conforme sua estrutura
 
 // Importa componentes padrão da aplicação
 import { ContentDisplay } from '../components/ContentDisplay';
@@ -78,7 +79,12 @@ const PaginaConteudoOtimizada: React.FC = () => {
     // Carrega o conteúdo da API/backend
     const { id, conteudo, loading } = useContentLoader();
     // Gerencia XP e streak do usuário
-    const { xp, streak, addXp, incrementStreak, resetStreak } = useXPStreak();
+    // Substitua 'userId' pela variável/campo correto que representa o ID do usuário logado
+    // Exemplo: obtenha do contexto de autenticação ou similar
+    // Obtenha o ID real do usuário autenticado do contexto de autenticação
+    const { userId } = useAuth();
+    const userIdNum = Number(userId) || 0;
+    const { xp, streak, addXp, incrementStreak, resetStreak } = useXPStreak(String(userIdNum)); // ou simplesmente use userId se já for string
 
     // Callback chamado ao finalizar um ciclo de foco (Pomodoro)
     const handleWorkComplete = useCallback(() => {
@@ -227,6 +233,8 @@ const PaginaConteudoOtimizada: React.FC = () => {
             </div>
         );
     }
+
+    console.log("conteudo:", conteudo);
 
     // Função para retornar ícone de acordo com a matéria
     function getSubjectIcon(subject: string) {
@@ -425,6 +433,27 @@ const PaginaConteudoOtimizada: React.FC = () => {
                             </div>
                         </div>
                         {/* Fim dos recursos adicionais */}
+
+                        {/* Botão para marcar conteúdo como concluído */}
+                        {conteudo && conteudo.id && (
+                          <button
+                            onClick={async () => {
+                              console.log("user_id:", userId, "content_id:", conteudo.id, typeof userId, typeof conteudo.id);
+                              await fetch('/api/conteudos/concluir', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  user_id: Number(userId),
+                                  content_id: Number(conteudo.id)
+                                }),
+                                credentials: 'include',
+                              });
+                              toast.success("Conteúdo marcado como concluído!");
+                            }}
+                          >
+                            Marcar como concluído
+                          </button>
+                        )}
                     </div>
                 </main>
 
@@ -554,3 +583,4 @@ const PaginaConteudoOtimizada: React.FC = () => {
 };
 
 export default PaginaConteudoOtimizada;
+

@@ -18,6 +18,7 @@ import AuthPage from './pages/AuthPage';
 import TrilhasPage from './pages/TrilhasPage';
 import PaginaConteudo from "./pages/PaginaConteudo_optimized";
 import PainelPage from "./pages/PainelPage";
+import OnboardingWizard from './pages/Onboarding/OnboardingWizard';
 
 import { AuthRoute } from './components/AuthRoute';
 
@@ -46,11 +47,7 @@ function App() {
               {/* Rotas do aplicativo */}
               <Route
                 path="/login"
-                element={
-                  <AuthPage
-                    onLogin={() => setIsAuthenticated(true)}
-                  />
-                }
+                element={<AuthPage />}
               />
               <Route
                 path="/perfil"
@@ -134,6 +131,14 @@ function App() {
                 element={
                   <PrivateRoute>
                     <PainelPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/onboarding"
+                element={
+                  <PrivateRoute>
+                    <OnboardingWizard />
                   </PrivateRoute>
                 }
               />

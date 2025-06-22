@@ -4,51 +4,102 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { LogIn, UserPlus } from 'lucide-react';
+import { LogIn, UserPlus, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useNavigate } from "react-router-dom";
 
-type AuthFormProps = {
-  onLogin: (email: string) => void;
-};
+interface UserLoginData {
+  id: string | number;
+  curso_id?: string | number | null;
+  email: string;
+  name: string;
+  has_onboarding: boolean;
+  avatar_url?: string | null; // <--- ajuste aqui
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface AuthFormProps {
+  onLogin: (user: UserLoginData) => void;
+}
+
+const sanitizeInput = (input: string) => input.replace(/<[^>]*>?/gm, '');
 
 const AuthForm = ({ onLogin }: AuthFormProps) => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginSuccess, setLoginSuccess] = useState<string | null>(null);
   const [registerError, setRegisterError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    name: '',
+    confirmPassword: ''
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const validateLogin = () => {
+    if (!formData.email.includes('@')) {
+      setLoginError('Email inválido');
+      return false;
+    }
+    if (formData.password.length < 4) {
+      setLoginError('Senha deve ter pelo menos 6 caracteres');
+      return false;
+    }
+    return true;
+  };
+
+  interface UserData {
+    id: number;
+    name: string;
+    email: string;
+    has_onboarding: boolean;
+    curso_id: number | null;
+    avatar_url?: string | null; // <-- permite string, null ou undefined
+    role: string;
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateLogin()) return;
     setIsLoading(true);
     setLoginError(null);
-
-    const email = (document.getElementById("email") as HTMLInputElement).value;
-    const password = (document.getElementById("password") as HTMLInputElement).value;
 
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({
+          email: formData.email.trim().toLowerCase(),
+          password: formData.password
+        }),
+        credentials: 'include'
       });
-      const data = await response.json();
-      if (response.ok) {
-        // Salva o usuário no localStorage
-        localStorage.setItem("user", JSON.stringify(data.user));
-        onLogin(data.user.email); // Chama a função onLogin passada como prop
 
-        // Após login bem-sucedido, verifica o estado do onboarding
-        const userResponse = await fetch(`/api/auth/user/me?email=${encodeURIComponent(email)}`);
-        const user = await userResponse.json();
-        if (!user.user.onboarding_done) {
-          window.location.href = "/onboarding";
-        } else {
-          window.location.href = "/dashboard";
-        }
-      } else {
-        setLoginError(data.message || "Erro ao fazer login");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Login failed');
       }
+
+      const user: UserData = await response.json();
+      localStorage.setItem("user", JSON.stringify(user));
+      onLogin(user);
+
+      setLoginSuccess("Login realizado com sucesso!");
+      setTimeout(() => navigate(user.has_onboarding ? "/dashboard" : "/onboarding"), 1000);
+
     } catch (err) {
-      setLoginError("Erro de conexão com o servidor");
+      if (err instanceof Error) setLoginError(err.message);
+      else setLoginError('Ocorreu um erro inesperado');
     } finally {
       setIsLoading(false);
     }
@@ -59,60 +110,58 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
     setIsLoading(true);
     setRegisterError(null);
 
-    const name = (document.getElementById("name") as HTMLInputElement).value;
-    const email = (document.getElementById("register-email") as HTMLInputElement).value;
-    const password = (document.getElementById("register-password") as HTMLInputElement).value;
-    const confirmPassword = (document.getElementById("confirm-password") as HTMLInputElement).value;
-
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setRegisterError("As senhas não coincidem");
       setIsLoading(false);
       return;
     }
 
     try {
-      // Cadastro do usuário
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }), // Corrija aqui!
+        body: JSON.stringify({
+          name: sanitizeInput(formData.name),
+          email: sanitizeInput(formData.email),
+          password: formData.password
+        }),
       });
       const data = await response.json();
 
-      if (!response.ok) {
-        setRegisterError(data.message || "Erro ao cadastrar");
-        setIsLoading(false);
-        return;
+      if (!response.ok || data.error) {
+        throw new Error(data.error || data.message || "Erro ao cadastrar");
       }
 
       // Login automático após cadastro
       const loginResponse = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: sanitizeInput(formData.email),
+          password: formData.password
+        }),
       });
       const loginData = await loginResponse.json();
 
-      if (!loginResponse.ok) {
-        setRegisterError(loginData.message || "Erro ao logar após cadastro");
-        setIsLoading(false);
-        return;
+      if (!loginResponse.ok || !loginData.id) {
+        throw new Error(loginData.error || "Erro ao logar após cadastro.");
       }
 
-      // Salva usuário no localStorage
-      localStorage.setItem("user", JSON.stringify(loginData.user));
-
-      // Checa se já fez onboarding
-      const userResponse = await fetch(`/api/auth/user/me?email=${encodeURIComponent(email)}`);
-      const user = await userResponse.json();
-
-      if (!user.user.onboarding_done) {
-        window.location.href = "/onboarding";
+      localStorage.setItem("user", JSON.stringify(loginData));
+      localStorage.setItem("userId", String(loginData.id));
+      if (loginData.curso_id !== undefined && loginData.curso_id !== null) {
+        localStorage.setItem("cursoId", String(loginData.curso_id));
       } else {
-        window.location.href = "/painel"; // ou "/dashboard"
+        localStorage.removeItem("cursoId");
       }
+      onLogin(loginData);
+
+      setLoginSuccess("Cadastro e login realizados com sucesso!");
+      setTimeout(() => navigate(loginData.has_onboarding ? "/dashboard" : "/onboarding"), 1000);
+
     } catch (err) {
-      setRegisterError("Erro inesperado ao cadastrar");
+      if (err instanceof Error) setRegisterError(err.message);
+      else setRegisterError('Erro inesperado ao cadastrar');
     } finally {
       setIsLoading(false);
     }
@@ -122,16 +171,8 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
     <Card className="w-full max-w-sm mx-auto shadow-lg rounded-xl border border-gray-200 bg-white/90 backdrop-blur-md py-4 px-2 md:px-4">
       <CardHeader className="space-y-1">
         <div className="flex flex-col items-center mb-1">
-          {/* Logo SVG personalizado */}
           <span className="flex items-center justify-center rounded-full shadow-lg bg-gradient-to-br from-cyan-400 to-blue-500 mb-2 w-12 h-12">
-            <svg
-              viewBox="0 0 32 32"
-              fill="white"
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-6 h-6"
-              aria-hidden="true"
-              focusable="false"
-            >
+            <svg viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" aria-hidden="true" focusable="false">
               <title>Logo Evolutiva</title>
               <desc>Logo em formato de livro aberto, representando estudo</desc>
               <path d="M16 3L4 9.5l12 6.5 12-6.5L16 3zM4 22.5l12 6.5 12-6.5M4 16l12 6.5 12-6.5" stroke="white" strokeWidth="2" fill="none"/>
@@ -149,12 +190,19 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
             <TabsTrigger value="login">Entrar</TabsTrigger>
             <TabsTrigger value="register">Cadastrar</TabsTrigger>
           </TabsList>
-          
           <TabsContent value="login">
             <form onSubmit={handleLogin} className="space-y-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="seu@email.com" required />
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="seu@email.com"
+                  required
+                  className={loginError ? 'border-red-500' : ''}
+                />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -163,42 +211,83 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
                     Esqueceu a senha?
                   </a>
                 </div>
-                <Input id="password" type="password" required />
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  className={loginError ? 'border-red-500' : ''}
+                />
               </div>
               {loginError && (
                 <div className="text-red-500 text-sm mt-2">
                   {loginError}
                 </div>
               )}
-              <motion.button
-                whileHover={{ scale: 1.04, boxShadow: "0 4px 24px 0 rgba(59,130,246,0.15)" }}
-                whileTap={{ scale: 0.97 }}
-                transition={{ type: "spring", stiffness: 300, damping: 18 }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg mt-4 transition"
+              {loginSuccess && (
+                <div className="text-green-600 text-sm mt-2">
+                  {loginSuccess}
+                </div>
+              )}
+              <Button
                 type="submit"
+                className="w-full"
+                disabled={isLoading || !formData.email || !formData.password}
+                variant={loginError ? 'destructive' : 'default'}
               >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <LogIn className="mr-2 h-4 w-4" />
+                )}
                 Entrar
-              </motion.button>
+              </Button>
             </form>
           </TabsContent>
-          
           <TabsContent value="register">
             <form onSubmit={handleRegister} className="space-y-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome completo</Label>
-                <Input id="name" type="text" placeholder="Seu nome" required />
+                <Input
+                  id="name"
+                  type="text"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Seu nome"
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="register-email">Email</Label>
-                <Input id="register-email" type="email" placeholder="seu@email.com" required />
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email" // <-- troque de "register-email" para "email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="seu@email.com"
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="register-password">Senha</Label>
-                <Input id="register-password" type="password" required />
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password" // <-- troque de "register-password" para "password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirmar senha</Label>
-                <Input id="confirm-password" type="password" required />
+                <Label htmlFor="confirmPassword">Confirmar senha</Label>
+                <Input
+                  id="confirmPassword" // <-- troque de "confirm-password" para "confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                />
               </div>
               {registerError && (
                 <div className="text-red-500 text-sm mt-2">
@@ -208,10 +297,7 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Cadastrando...
                   </span>
                 ) : (

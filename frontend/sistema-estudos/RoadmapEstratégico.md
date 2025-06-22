@@ -115,7 +115,7 @@ Este roadmap apresenta as etapas estratégicas para evolução da plataforma, pr
 ---
 
 > **Legenda:**  
-> ✅ Concluído &nbsp;&nbsp; 🔲 Planejado &nbsp;&nbsp; 🟨 Em andamento
+> ✅ Concluído  🔲 Planejado  🟨 Em andamento
 
 ---
 

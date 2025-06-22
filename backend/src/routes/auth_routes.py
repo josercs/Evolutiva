@@ -1,4 +1,7 @@
 from flask import Blueprint, request, jsonify
+from sqlalchemy import select
+from werkzeug.security import check_password_hash
+from flask_login import login_user
 from models.models import db, User
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
@@ -33,19 +36,26 @@ def login():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
-    user = User.query.filter_by(email=email).first()
-    if user and user.check_password(password):
-        return jsonify({
-            'success': True,
-            'message': 'Login realizado com sucesso',
-            'user': {
-                'id': user.id,
-                'name': user.name,
-                'email': user.email,
-                'role': getattr(user, 'role', 'student')
-            }
-        })
-    return jsonify({'success': False, 'message': 'Credenciais inválidas'}), 401
+    if not email or not password:
+        return jsonify({'error': 'Email e senha são obrigatórios'}), 400
+
+    user = db.session.execute(
+        select(User).where(User.email == email)
+    ).scalar_one_or_none()
+
+    if not user or not user.check_password(password):
+        return jsonify({'error': 'Credenciais inválidas'}), 401
+
+    login_user(user)
+    return jsonify({
+        'id': user.id,
+        'name': user.name,
+        'email': user.email,
+        'has_onboarding': user.has_onboarding,
+        'curso_id': user.curso_id,
+        'avatar_url': user.avatar_url,
+        'role': user.role
+    })
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
@@ -135,7 +145,7 @@ def user_me():
             'name': user.name,
             'email': user.email,
             'role': getattr(user, 'role', 'student'),
-            'onboarding_done': getattr(user, 'onboarding_done', False)
+            'has_onboarding': getattr(user, 'has_onboarding', False)
         }
     })
 
@@ -149,6 +159,6 @@ def onboarding():
     user = User.query.filter_by(email=email).first()
     if not user:
         return jsonify({'success': False, 'message': 'Usuário não encontrado'}), 404
-    user.onboarding_done = True
+    user.has_onboarding = True  # <-- padronize aqui!
     db.session.commit()
     return jsonify({'success': True, 'message': 'Onboarding concluído'})

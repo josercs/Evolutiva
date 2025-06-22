@@ -1,3 +1,4 @@
+import email
 import sys
 import os
 from dotenv import load_dotenv
@@ -5,30 +6,32 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import requests
 import psycopg2
-from sqlalchemy import text
+from sqlalchemy import text, select
 from models.models import db, HorariosEscolares, PlanoEstudo, User
 import re
 import json
-import sys
-import os
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_login import LoginManager, login_required, current_user, login_user, logout_user
+from sqlalchemy.orm import Session
+from flask_caching import Cache
+import logging
+
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# Carregar variáveis de ambiente
 load_dotenv()
 
-# Configuração do Gemini
+logging.basicConfig(level=logging.DEBUG)
+
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
 GEMINI_MODEL = os.getenv("GOOGLE_DEFAULT_MODEL", "models/gemini-1.5-flash-latest")
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 
-# Configuração do Upload
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Configuração do Flask
 app = Flask(__name__)
 app.secret_key = "um_valor_secreto_e_unico"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -42,41 +45,39 @@ CORS(
     ]}}
 )
 
-# Configuração do LoginManager
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-# Diga ao Flask-Login como carregar um usuário
 from models.models import User
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Configuração do PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql://{os.getenv('DB_USERNAME', 'postgres')}:{os.getenv('DB_PASSWORD', '1234')}@{os.getenv('DB_HOST', 'localhost')}:{os.getenv('DB_PORT', '5432')}/{os.getenv('DB_NAME', 'sistema_estudos')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
-# Registrar blueprints
 from routes.auth_routes import auth_bp
 from src.routes import course_routes, progress_routes, onboarding_routes
+from routes.materias_routes import materias_bp
+from src.db import get_db_connection
 app.register_blueprint(auth_bp)
 app.register_blueprint(course_routes.course_bp)
 app.register_blueprint(progress_routes.progress_bp)
 app.register_blueprint(onboarding_routes.onboarding_bp)
+app.register_blueprint(materias_bp)
+app.register_blueprint(progress_routes.content_bp)  # <-- Isso é essencial!
 
-# --- Utilitários ---
-def get_db_connection():
-    return psycopg2.connect(
-        dbname=os.getenv('DB_NAME', 'sistema_estudos'),
-        user=os.getenv('DB_USERNAME', 'postgres'),
-        password=os.getenv('DB_PASSWORD', '1234'),
-        host=os.getenv('DB_HOST', 'localhost'),
-        port=os.getenv('DB_PORT', '5432')
-    )
+# def get_db_connection():
+#     return psycopg2.connect(
+#         dbname=os.getenv('DB_NAME', 'sistema_estudos'),
+#         user=os.getenv('DB_USERNAME', 'postgres'),
+#         password=os.getenv('DB_PASSWORD', '1234'),
+#         host=os.getenv('DB_HOST', 'localhost'),
+#         port=os.getenv('DB_PORT', '5432')
+#     )
 
-# --- Rotas Básicas ---
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "online", "message": "API do Sistema de Estudos está funcionando!"})
@@ -202,7 +203,7 @@ def get_conteudo_html(conteudo_id):
         conn = get_db_connection()
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT s.subject, s.topic, s.content_html, h.materia
+                SELECT s.id, s.subject, s.topic, s.content_html, h.materia
                 FROM subject_contents s
                 JOIN horarios_escolares h ON s.materia_id = h.id
                 WHERE s.id = %s
@@ -211,10 +212,11 @@ def get_conteudo_html(conteudo_id):
         conn.close()
         if row:
             return jsonify({
-                "subject": row[0],
-                "topic": row[1],
-                "content_html": row[2],
-                "materia": row[3]
+                "id": row[0],           # <-- Adicione esta linha
+                "subject": row[1],
+                "topic": row[2],
+                "content_html": row[3],
+                "materia": row[4]
             })
         else:
             return jsonify({"error": "Conteúdo não encontrado"}), 404
@@ -483,8 +485,6 @@ def upload_avatar():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-
 @app.route('/api/usuarios/avatar', methods=['GET'])
 def get_avatar():
     email = request.args.get('email')
@@ -536,7 +536,7 @@ def complete_onboarding():
     user = User.query.get(current_user.id)
     if not user:
         return jsonify({"error": "Usuário não encontrado"}), 404
-    user.onboarding_done = True
+    user.has_onboarding = True  # <-- padronizado
     db.session.commit()
     return jsonify({"message": "Onboarding concluído!"})
 
@@ -547,42 +547,51 @@ def get_me():
         "id": current_user.id,
         "name": current_user.name,
         "email": current_user.email,
-        "onboarding_done": current_user.onboarding_done,
+        "has_onboarding": current_user.has_onboarding,  # <-- padronizado
         "avatar_url": current_user.avatar_url,
-        # outros campos...
     })
 
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
 
-    if not email or not password:
-        return jsonify({'error': 'Email e senha são obrigatórios.'}), 400
-
-    try:
-        # Aqui você deve verificar as credenciais do usuário no seu banco de dados
-        user = User.query.filter_by(email=email).first()
-        if user and check_password_hash(user.password_hash, password):
-            login_user(user)
-            return jsonify({
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "onboarding_done": user.onboarding_done,
-                "avatar_url": user.avatar_url,
-                # outros campos...
-            })
-        else:
-            return jsonify({'error': 'Credenciais inválidas'}), 401
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
     logout_user()
     return jsonify({"message": "Logout realizado com sucesso!"})
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    try:
+        data = request.get_json()
+        if not data or 'email' not in data or 'password' not in data:
+            return jsonify({'error': 'Email e senha são obrigatórios'}), 400
+
+        email = data['email'].strip().lower()
+        password = data['password']
+
+        stmt = select(User).where(User.email == email).limit(1)
+        user = db.session.execute(stmt).scalar_one_or_none()
+
+        if not user:
+            return jsonify({'error': 'Usuário não encontrado'}), 404
+
+        if not check_password_hash(user.password_hash, password):
+            return jsonify({'error': 'Credenciais inválidas'}), 401
+
+        user_data = {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'has_onboarding': user.has_onboarding,
+            'curso_id': user.curso_id,
+            'avatar_url': user.avatar_url,
+            'role': user.role
+        }
+
+        return jsonify(user_data), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @app.route("/api/register", methods=["POST"])
 def register():
@@ -595,22 +604,63 @@ def register():
         return jsonify({'success': False, 'message': 'Todos os campos são obrigatórios'}), 400
 
     try:
-        # Verifica se o usuário já existe
         if User.query.filter_by(email=email).first():
             return jsonify({"error": "Email já cadastrado."}), 409
 
-        # Cria um novo usuário
         new_user = User(
             name=name,
             email=email,
-            password_hash=generate_password_hash(password)
+            password_hash=generate_password_hash(password),
+            has_onboarding=False
         )
         db.session.add(new_user)
         db.session.commit()
 
-        return jsonify({"message": "Usuário registrado com sucesso!"}), 201
+        # Retorne o usuário criado, incluindo o id
+        return jsonify({
+            "id": new_user.id,
+            "name": new_user.name,
+            "email": new_user.email,
+            "curso_id": new_user.curso_id,
+            "has_onboarding": new_user.has_onboarding,
+            "avatar_url": new_user.avatar_url,
+        }), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+# Remova ou renomeie a outra função 'login' duplicada!
+def get_user_by_id(user_id):
+    with Session(db.engine) as session:
+        return session.get(User, int(user_id))
+
+# Configuração do cache
+cache = Cache(config={'CACHE_TYPE': 'SimpleCache'})
+cache.init_app(app)
+
+# Exemplo de endpoint Flask
+@app.route('/api/materias')
+def get_materias():
+    course_id = request.args.get('course_id')
+    materias_param = request.args.get('materias')
+    if not course_id:
+        return jsonify({"materias": []})
+    query = """
+        SELECT m.id, m.materia as nome
+        FROM curso_materia cm
+        JOIN horarios_escolares m ON cm.materia_id = m.id
+        WHERE cm.curso_id = :course_id
+    """
+    params = {"course_id": course_id}
+    if materias_param:
+        nomes = [nome.strip() for nome in materias_param.split(',')]
+        query += " AND m.materia = ANY(:nomes)"
+        params["nomes"] = nomes
+    materias = db.session.execute(text(query), params).fetchall()
+    return jsonify({
+        "materias": [
+            {"id": row[0], "nome": row[1]}
+            for row in materias
+        ]
+    })
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)

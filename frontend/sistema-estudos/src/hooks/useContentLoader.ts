@@ -4,6 +4,10 @@ import { toast } from "react-toastify";
 
 // Define o tipo ConteudoHtml (pode ser movido para um arquivo de tipos separado posteriormente)
 type ConteudoHtml = {
+  id: number; // <-- Adicione esta linha!
+  titulo?: string;
+  html?: string;
+  concluido?: boolean;
   tarefasPendentes: number;
   tempoEstudo: string;
   progresso: any;

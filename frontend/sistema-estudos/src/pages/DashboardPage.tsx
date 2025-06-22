@@ -2,6 +2,9 @@ import { Award, User, BarChart2, BookOpen, Clock, Star, ChevronRight } from "luc
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useProgressByMateria } from "../hooks/useProgressByMateria";
+import { useAchievements } from "../hooks/useAchievements";
+import { useXPStreak } from "../hooks/useXPStreak";
 
 const user = {
   name: "João",
@@ -29,6 +32,13 @@ const data = [
 
 const DashboardPage = () => {
   const navigate = useNavigate();
+
+  const userId = localStorage.getItem("userId") || "1";
+  const courseId = localStorage.getItem("courseId") || "1";
+
+  const { progresso, loading: loadingProgresso } = useProgressByMateria(userId, courseId);
+  const { achievements, loading: loadingAchievements } = useAchievements(userId);
+  const { xp, streak } = useXPStreak(userId);
 
   useEffect(() => {
     const onboardingDone = localStorage.getItem("onboardingDone") === "true";

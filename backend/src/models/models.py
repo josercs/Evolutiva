@@ -1,36 +1,56 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import Column, Boolean, Integer, String
-from flask_login import UserMixin
 
 db = SQLAlchemy()
 
-class User(UserMixin, db.Model):
+class User(db.Model):
     __tablename__ = 'users'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
-    password_hash = db.Column(db.String(512), nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
     role = db.Column(db.String(20), default='student')
-    avatar_url = db.Column(db.String(255))
-    onboarding_done = db.Column(Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relacionamentos
+    avatar_url = db.Column(db.String(255), nullable=True)
+    has_onboarding = db.Column(db.Boolean, default=False)
+    idade = db.Column(db.Integer)
+    escolaridade = db.Column(db.String(50))
+    objetivo = db.Column(db.String(100))
+    dias_disponiveis = db.Column(db.ARRAY(db.String))
+    tempo_diario = db.Column(db.Integer)
+    estilo_aprendizagem = db.Column(db.String(50))
+    ritmo = db.Column(db.String(50))
+    horario_inicio = db.Column(db.Time)
+    created_at = db.Column(db.DateTime, default=db.func.now())
+    updated_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
+    curso_id = db.Column(db.Integer, db.ForeignKey('cursos.id'), nullable=True)
+
+    # Relacionamentos (exemplo: progresso, conquistas)
     progress = db.relationship('Progress', backref='user', lazy=True)
     achievements = db.relationship('Achievement', backref='user', lazy=True)
-    
-    def __repr__(self):
-        return f'<User {self.name}>'
-    
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+        
+    # Flask-Login integration
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_active(self):
+        return True  # ou lógica para desativar usuário
+
+    @property
+    def is_anonymous(self):
+        return False
+
+    def get_id(self):
+        return str(self.id)
         
 class Course(db.Model):
     __tablename__ = 'courses'
@@ -53,8 +73,9 @@ class Module(db.Model):
     __tablename__ = 'modules'
     
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False)
+    title = db.Column(db.String(255))
+    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'))
+    materia_id = db.Column(db.Integer, db.ForeignKey('horarios_escolares.id'))  # <-- novo campo
     order = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -138,10 +159,10 @@ class Progress(db.Model):
     last_activity = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relacionamentos
-    current_lesson = db.relationship('Lesson', foreign_keys=[current_lesson_id])
-    
+    current_lesson = db.relationship('Lesson', foreign_keys=[current_lesson_id], lazy=True)
+
     def __repr__(self):
         return f'<Progress {self.user_id}-{self.course_id}>'
         
@@ -171,20 +192,8 @@ class Achievement(db.Model):
 class HorariosEscolares(db.Model):
     __tablename__ = 'horarios_escolares'
     id = db.Column(db.Integer, primary_key=True)
-    horario = db.Column(db.String)
     materia = db.Column(db.String)
-    conteudo = db.Column(db.String)
-    status = db.Column(db.String)
-    prioridade = db.Column(db.String)
-    link = db.Column(db.String)
-    videos = db.Column(db.String)
-    anotacoes = db.Column(db.String)
-    feito = db.Column(db.Boolean)
-    pdf = db.Column(db.LargeBinary)
-    pdf_nome = db.Column(db.String)
-    dia = db.Column(db.Date)
-    conteudo_id = db.Column(db.Integer)
-    link1 = db.Column(db.String)
+    horario = db.Column(db.String)
 
 class PlanoEstudo(db.Model):
     __tablename__ = 'planos_estudo'
@@ -196,4 +205,58 @@ class PlanoEstudo(db.Model):
 
     def __repr__(self):
         return f'<PlanoEstudo {self.email}>'
+
+class SubjectContent(db.Model):
+    __tablename__ = 'subject_contents'
+    id = db.Column(db.Integer, primary_key=True)
+    subject = db.Column(db.String)
+    topic = db.Column(db.String)
+    content_html = db.Column(db.Text)
+    created_at = db.Column(db.DateTime)
+    materia_id = db.Column(db.Integer)
+    curso_id = db.Column(db.Integer)
+
+    def __repr__(self):
+        return f'<SubjectContent {self.subject} - {self.topic}>'
+
+class Curso(db.Model):
+    __tablename__ = 'cursos'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(255))
+
+class CursoMateria(db.Model):
+    __tablename__ = 'curso_materia'
+    id = db.Column(db.Integer, primary_key=True)
+    curso_id = db.Column(db.Integer, db.ForeignKey('cursos.id'))
+    materia_id = db.Column(db.Integer, db.ForeignKey('horarios_escolares.id'))
+
+class Conteudo(db.Model):
+    __tablename__ = 'conteudos'
+    id = db.Column(db.Integer, primary_key=True)
+    materia_id = db.Column(db.Integer, db.ForeignKey('horarios_escolares.id'), nullable=False)
+    titulo = db.Column(db.String(255), nullable=False)
+    descricao = db.Column(db.Text)
+    conteudo_html = db.Column(db.Text)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relacionamento com HorariosEscolares (Materia)
+    materia = db.relationship('HorariosEscolares', backref='conteudos', lazy=True)
+
+    def __repr__(self):
+        return f'<Conteudo {self.titulo}>'
+
+class XPStreak(db.Model):
+    __tablename__ = 'xp_streak'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False, unique=True)
+    xp = db.Column(db.Integer, default=0)
+    streak = db.Column(db.Integer, default=0)
+
+class CompletedContent(db.Model):
+    __tablename__ = 'completed_content'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    content_id = db.Column(db.Integer, nullable=False)
+    completed_at = db.Column(db.DateTime, default=db.func.now())
 

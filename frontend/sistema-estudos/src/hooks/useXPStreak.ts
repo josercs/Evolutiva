@@ -26,7 +26,7 @@ const setLocalStorageNumber = (key: string, value: number) => {
 // Props opcionais (nenhuma necessária por enquanto, mas pode ser útil no futuro)
 interface UseXPStreakProps {}
 
-export const useXPStreak = (props: UseXPStreakProps = {}) => {
+export const useXPStreak = (userId: string) => {
   const [xp, setXp] = useState<number>(() => getLocalStorageNumber("xp", 0));
   const [streak, setStreak] = useState<number>(() => getLocalStorageNumber("streak", 0));
 
@@ -58,6 +58,15 @@ export const useXPStreak = (props: UseXPStreakProps = {}) => {
   const resetStreak = useCallback(() => {
     setStreak(0);
   }, []);
+
+  useEffect(() => {
+    fetch(`/api/progress/user/${userId}/xp`)
+      .then(res => res.json())
+      .then(data => {
+        setXp(data.xp || 0);
+        setStreak(data.streak || 0);
+      });
+  }, [userId]);
 
   return {
     xp,

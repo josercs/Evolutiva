@@ -1,82 +1,129 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
+from src.db import get_db_connection
+from models.models import db, HorariosEscolares, CursoMateria, Module, Lesson, CompletedLesson, CompletedContent, User, Curso
+from sqlalchemy import text
 
 progress_bp = Blueprint('progress', __name__, url_prefix='/api/progress')
 
-# Dados simulados de progresso
-user_progress = {
-    1: {  # user_id
-        'courses': {
-            1: {  # course_id
-                'completed_lessons': [1, 2],
-                'current_lesson': 3,
-                'progress_percentage': 33,
-                'last_activity': '2025-05-22T14:30:00Z'
-            },
-            2: {  # course_id
-                'completed_lessons': [7],
-                'current_lesson': 8,
-                'progress_percentage': 25,
-                'last_activity': '2025-05-21T16:45:00Z'
-            }
-        },
-        'achievements': [
-            {'id': 1, 'title': 'Primeiro Login', 'date_earned': '2025-05-20T10:00:00Z'},
-            {'id': 2, 'title': 'Primeira Lição Concluída', 'date_earned': '2025-05-20T10:30:00Z'}
-        ]
-    }
-}
+@progress_bp.route('/materias/<int:user_id>/<int:curso_id>', methods=['GET'])
+def progresso_materias(user_id, curso_id):
+    """
+    Retorna o progresso do usuário por matéria dentro de um curso.
+    Cada matéria é associada a módulos via campo materia_id em modules.
+    """
+    # Busque apenas as matérias associadas ao curso_id
+    materias = db.session.execute(
+        text("""
+            SELECT m.id, m.materia
+            FROM curso_materia cm
+            JOIN horarios_escolares m ON cm.materia_id = m.id
+            WHERE cm.curso_id = :curso_id
+        """),
+        {"curso_id": curso_id}
+    ).fetchall()
 
+    # Monte o progresso só para essas matérias
+    progresso = []
+    for row in materias:
+        materia_id, nome = row
+        # Total de conteúdos da matéria
+        total = db.session.execute(
+            text("SELECT COUNT(*) FROM subject_contents WHERE materia_id = :materia_id"),
+            {"materia_id": materia_id}
+        ).scalar()
+
+        # Quantos conteúdos o usuário concluiu nessa matéria
+        concluidos = db.session.execute(
+            text("""
+                SELECT COUNT(*) FROM completed_content cc
+                JOIN subject_contents sc ON cc.content_id = sc.id
+                WHERE cc.user_id = :user_id AND sc.materia_id = :materia_id
+            """),
+            {"user_id": user_id, "materia_id": materia_id}
+        ).scalar()
+
+        percent = int((concluidos / total) * 100) if total > 0 else 0
+        progresso.append({
+            "materia": nome,
+            "percent": percent,
+            "total_lessons": total,
+            "completed_lessons": concluidos
+        })
+
+    return jsonify({"progresso": progresso})
+
+# Endpoint para listar conquistas do usuário
+@progress_bp.route('/achievements/<int:user_id>', methods=['GET'])
+def get_user_achievements(user_id):
+    from models.models import Achievement  # Certifique-se de ter o modelo Achievement
+    achievements = Achievement.query.filter_by(user_id=user_id).all()
+    return jsonify({
+        "achievements": [
+            {
+                "id": a.id,
+                "title": a.title,
+                "description": a.description,
+                "earned_at": a.earned_at.isoformat() if a.earned_at else None
+            }
+            for a in achievements
+        ]
+    })
+
+# Endpoint para progresso geral do usuário (todos os cursos)
 @progress_bp.route('/user/<int:user_id>', methods=['GET'])
 def get_user_progress(user_id):
-    if user_id in user_progress:
-        return jsonify({
-            'success': True,
-            'progress': user_progress[user_id]
-        })
-    return jsonify({'success': False, 'message': 'Usuário não encontrado'}), 404
-
-@progress_bp.route('/user/<int:user_id>/course/<int:course_id>', methods=['GET'])
-def get_course_progress(user_id, course_id):
-    if user_id in user_progress and course_id in user_progress[user_id]['courses']:
-        return jsonify({
-            'success': True,
-            'progress': user_progress[user_id]['courses'][course_id]
-        })
-    return jsonify({'success': False, 'message': 'Progresso não encontrado'}), 404
-
-@progress_bp.route('/user/<int:user_id>/course/<int:course_id>/lesson/<int:lesson_id>', methods=['POST'])
-def update_lesson_progress(user_id, course_id, lesson_id):
-    # Simulação de atualização de progresso
-    if user_id not in user_progress:
-        user_progress[user_id] = {'courses': {}, 'achievements': []}
-    
-    if course_id not in user_progress[user_id]['courses']:
-        user_progress[user_id]['courses'][course_id] = {
-            'completed_lessons': [],
-            'current_lesson': lesson_id,
-            'progress_percentage': 0,
-            'last_activity': '2025-05-23T00:00:00Z'
-        }
-    
-    progress = user_progress[user_id]['courses'][course_id]
-    
-    if lesson_id not in progress['completed_lessons']:
-        progress['completed_lessons'].append(lesson_id)
-        progress['current_lesson'] = lesson_id + 1
-        
-        # Simulação de cálculo de porcentagem (na implementação real, seria baseado no total de lições)
-        if course_id == 1:
-            total_lessons = 6
-        elif course_id == 2:
-            total_lessons = 4
-        else:
-            total_lessons = 4
-            
-        progress['progress_percentage'] = min(100, int((len(progress['completed_lessons']) / total_lessons) * 100))
-        progress['last_activity'] = '2025-05-23T00:00:00Z'  # Na implementação real, seria a data atual
-    
+    from models.models import Progress
+    progresses = Progress.query.filter_by(user_id=user_id).all()
     return jsonify({
-        'success': True,
-        'message': 'Progresso atualizado com sucesso',
-        'progress': progress
+        "progress": [
+            {
+                "course_id": p.course_id,
+                "progress_percentage": p.progress_percentage,
+                "current_lesson_id": p.current_lesson_id,
+                "last_activity": p.last_activity.isoformat() if p.last_activity else None
+            }
+            for p in progresses
+        ]
     })
+
+@progress_bp.route('/user/<int:user_id>/xp', methods=['GET'])
+def get_user_xp(user_id):
+    # Exemplo: retorne XP e streak do usuário
+    from models.models import XPStreak
+    xp = XPStreak.query.filter_by(user_id=user_id).first()
+    return jsonify({
+        "xp": xp.xp if xp else 0,
+        "streak": xp.streak if xp else 0
+    })
+
+@progress_bp.route('/user/<int:user_id>/curso', methods=['GET'])
+def get_user_curso(user_id):
+    try:
+        user = User.query.get(user_id)
+        if not user or not user.curso_id:
+            return jsonify({"error": "Curso não encontrado"}), 404
+        curso = Curso.query.get(user.curso_id)
+        if not curso:
+            return jsonify({"error": "Curso não encontrado"}), 404
+        return jsonify({
+            "id": curso.id,
+            "nome": curso.nome,
+            "descricao": getattr(curso, "descricao", None)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+content_bp = Blueprint('content', __name__, url_prefix='/api/conteudos')
+
+@content_bp.route('/concluir', methods=['POST'])
+def concluir_conteudo():
+    data = request.json
+    user_id = data.get('user_id')
+    content_id = data.get('content_id')
+    if not user_id or not content_id:
+        return jsonify({"success": False, "message": "Dados incompletos"}), 400
+    if not CompletedContent.query.filter_by(user_id=user_id, content_id=content_id).first():
+        cc = CompletedContent(user_id=user_id, content_id=content_id)
+        db.session.add(cc)
+        db.session.commit()
+    return jsonify({"success": True})
