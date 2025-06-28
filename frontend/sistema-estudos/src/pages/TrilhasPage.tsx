@@ -42,10 +42,8 @@ const capitalize = (str: string) =>
 
 const getActivityIcon = (type: string) => {
   const icons: Record<string, JSX.Element> = {
-    revisão: <BookOpen className="h-4 w-4 text-amber-600" />,
+    review: <BookOpen className="h-4 w-4 text-amber-600" />,
     quiz: <Target className="h-4 w-4 text-blue-600" />,
-    teoria: <BookOpen className="h-4 w-4 text-indigo-600" />,
-    prática: <Play className="h-4 w-4 text-green-600" />,
     default: <Play className="h-4 w-4 text-green-600" />,
   };
   return icons[type] || icons.default;
@@ -53,10 +51,8 @@ const getActivityIcon = (type: string) => {
 
 const getActivityColor = (type: string) => {
   const colors: Record<string, string> = {
-    revisão: "from-amber-50 to-amber-100 border-amber-200",
+    review: "from-amber-50 to-amber-100 border-amber-200",
     quiz: "from-blue-50 to-blue-100 border-blue-200",
-    teoria: "from-indigo-50 to-indigo-100 border-indigo-200",
-    prática: "from-green-50 to-green-100 border-green-200",
     default: "from-green-50 to-green-100 border-green-200",
   };
   return colors[type] || colors.default;
@@ -150,11 +146,9 @@ const TrilhasPage: React.FC = () => {
     setPlanoCompleto(novoPlano);
   };
 
-  const dataHoje = getDataHoje();
-  const diaHoje = getDiaSemanaHoje();
-
+  const dataHoje = getDataHoje(); // ex: "27/06/2025"
   const atividadesHoje =
-    planoCompleto?.days?.find((d) => d.date === diaHoje) || null;
+    planoCompleto?.days?.find((d) => d.date === dataHoje) || null;
 
   // === LOADING ===
   if (loadingPlano) {
@@ -220,7 +214,7 @@ const TrilhasPage: React.FC = () => {
 
   // === PLANO EXISTENTE ===
   return (
-    <div className="max-w-3xl mx-auto py-8 px-2 mt-8">
+    <div className="max-w-3xl mx-auto py-8 px-2">
       <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-6 py-6">
         {/* Header */}
         <header className="text-center mb-8">
@@ -290,7 +284,7 @@ const TrilhasPage: React.FC = () => {
                               {block.topic}
                             </p>
                             <span className="inline-block mt-1 text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded-full">
-                              {capitalize(block.activity_type)}
+                              {block.activity_type}
                             </span>
                           </div>
                         </div>
