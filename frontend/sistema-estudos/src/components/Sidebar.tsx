@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import {
   Home, Calendar, BookOpen, ListChecks, Layers, User, ChevronDown,
-  ChevronRight, FolderOpen, Target, MessageCircle, ClipboardList, Menu as MenuIcon, X as XIcon,
+  ChevronRight, FolderOpen, Target, MessageCircle, ClipboardList, Menu as MenuIcon, X as XIcon, Award,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUser } from "../contexts/UserContext";
@@ -21,7 +21,18 @@ interface MenuItem {
 }
 
 const menuData: MenuItem[] = [
-  { id: 'inicio', label: 'Início', icon: Home, path: '/painel' },
+  {
+    id: 'home',
+    label: 'Início',
+    icon: Home,
+    path: '/', // Vai para a landing page pública
+  },
+  {
+    id: 'painel',
+    label: 'Painel',
+    icon: Award,
+    path: '/painel', // Vai para o painel do usuário logado
+  },
   { id: 'planejamentoTitle', label: 'Planejamento', isTitle: true },
   {
     id: 'planejamento',

@@ -61,6 +61,7 @@ interface Course {
   description: string;
   color: string;
   icon?: React.ReactNode;
+  isNew?: boolean; // Adicionado para indicar cursos novos
 }
 
 /**
@@ -118,10 +119,6 @@ const CourseCard = ({ course, onClick }: { course: Course; onClick: () => void }
         tabIndex={0}
         type="button"
       >
-        {/* Badge corporativo */}
-        <span className="absolute top-3 right-3 bg-white/90 text-blue-700 text-xs font-bold px-2 py-1 rounded-full shadow-sm backdrop-blur-sm">
-          Novo
-        </span>
         {/* Ícone SVG customizado centralizado com drop-shadow */}
         <span className="mb-3 flex justify-center items-center">
           {course.icon}
@@ -132,6 +129,12 @@ const CourseCard = ({ course, onClick }: { course: Course; onClick: () => void }
         <p className="text-base font-medium text-white/90 text-center leading-snug">
           {course.description}
         </p>
+        {/* Badge corporativo, só para cursos novos */}
+        {course.isNew && (
+          <span className="absolute top-3 right-3 bg-white/90 text-blue-700 text-xs font-bold px-2 py-1 rounded-full shadow-sm backdrop-blur-sm">
+            Novo
+          </span>
+        )}
       </button>
     </div>
   );
@@ -175,30 +178,32 @@ const CoursesPage = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-0 sm:py-4 lg:py-4">
-      <PageHeader
-        title={
-          <>
-            <span className="text-blue-600">Cursos</span> Disponíveis
-          </>
-        }
-        description="Monte seu cronograma de estudos personalizado e alcance seu objetivo: aprovação nas melhores escolas técnicas de ensino médio e um excelente desempenho no ENEM."
-      />
+    <div className="max-w-3xl mx-auto py-8 px-2 mt-8">
+      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-6 py-6">
+        <PageHeader
+          title={
+            <>
+              <span className="text-blue-600">Cursos</span> Disponíveis
+            </>
+          }
+          description="Monte seu cronograma de estudos personalizado e alcance seu objetivo: aprovação nas melhores escolas técnicas de ensino médio e um excelente desempenho no ENEM."
+        />
 
-      <section aria-labelledby="courses-heading">
-        <h2 id="courses-heading" className="sr-only">
-          Nossos Cursos
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {COURSE_LIST.map((course) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              onClick={() => handleCourseNavigation(course.id)}
-            />
-          ))}
-        </div>
-      </section>
+        <section aria-labelledby="courses-heading">
+          <h2 id="courses-heading" className="sr-only">
+            Nossos Cursos
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {COURSE_LIST.map((course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                onClick={() => handleCourseNavigation(course.id)}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 };

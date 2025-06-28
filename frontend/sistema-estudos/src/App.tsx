@@ -12,13 +12,13 @@ import CoursesCTISMPage from './pages/CoursesCTISMPage';
 import CoursesMilitaresPage from './pages/CoursesMilitaresPage';
 import CourseDetailPage from './pages/CourseDetailPage';
 import LessonPage from './pages/LessonPage';
-import ProgressPage from './pages/ProgressPage';
 import ProfilePage from './pages/ProfilePage';
 import AuthPage from './pages/AuthPage';
 import TrilhasPage from './pages/TrilhasPage';
 import PaginaConteudo from "./pages/PaginaConteudo_optimized";
 import PainelPage from "./pages/PainelPage";
 import OnboardingWizard from './pages/Onboarding/OnboardingWizard';
+import { PlanoProvider } from "./contexts/usePlanoContext";
 
 import { AuthRoute } from './components/AuthRoute';
 
@@ -40,111 +40,110 @@ function App() {
     <NotificationProvider>
       <AvatarProvider>
         <UserProvider>
-          <Router>
-            <Navbar />
-            <Sidebar />
-            <Routes>
-              {/* Rotas do aplicativo */}
-              <Route
-                path="/login"
-                element={<AuthPage />}
-              />
-              <Route
-                path="/perfil"
-                element={
-                  <PrivateRoute>
-                    <ProfilePage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/"
-                element={<HomePage />}
-              />
-              <Route
-                path="/cursos"
-                element={
-                  <PrivateRoute>
-                    <CoursesPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/cursos/ifrs"
-                element={
-                  <PrivateRoute>
-                    <CoursesIFRSPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/cursos/ctism"
-                element={
-                  <PrivateRoute>
-                    <CoursesCTISMPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/cursos/colegios-militares"
-                element={
-                  <PrivateRoute>
-                    <CoursesMilitaresPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/cursos/:materia"
-                element={
-                  <PrivateRoute>
-                    <CourseDetailPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/cursos/:courseId/aula/:lessonId"
-                element={
-                  <PrivateRoute>
-                    <LessonPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/progresso"
-                element={
-                  <PrivateRoute>
-                    <ProgressPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/trilhas"
-                element={
-                  <PrivateRoute>
-                    <TrilhasPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route path="/conteudo/:id" element={<PaginaConteudo />} />
-              <Route
-                path="/painel"
-                element={
-                  <PrivateRoute>
-                    <PainelPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/onboarding"
-                element={
-                  <PrivateRoute>
-                    <OnboardingWizard />
-                  </PrivateRoute>
-                }
-              />
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </Router>
+          <PlanoProvider>
+            <Router>
+              <Navbar />
+              <Sidebar />
+              <Routes>
+                {/* Rotas do aplicativo */}
+                <Route
+                  path="/login"
+                  element={<AuthPage />}
+                />
+                <Route
+                  path="/perfil"
+                  element={
+                    <PrivateRoute>
+                      <ProfilePage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/"
+                  element={<HomePage />}
+                />
+                <Route
+                  path="/cursos"
+                  element={
+                    <PrivateRoute>
+                      <CoursesPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/cursos/ifrs"
+                  element={
+                    <PrivateRoute>
+                      <CoursesIFRSPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/cursos/ctism"
+                  element={
+                    <PrivateRoute>
+                      <CoursesCTISMPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/cursos/colegios-militares"
+                  element={
+                    <PrivateRoute>
+                      <CoursesMilitaresPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/cursos/:materia"
+                  element={
+                    <PrivateRoute>
+                      <CourseDetailPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/cursos/:courseId/aula/:lessonId"
+                  element={
+                    <PrivateRoute>
+                      <LessonPage />
+                    </PrivateRoute>
+                  }
+                />                
+                
+                <Route
+                  path="/trilhas"
+                  element={
+                    <PrivateRoute>
+                      <TrilhasPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route path="/conteudo/:id" element={<PaginaConteudo />} />
+                <Route
+                  path="/painel"
+                  element={
+                    <PrivateRoute>
+                      <PainelPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/progresso"
+                  element={<Navigate to="/painel" replace />}
+                />
+                <Route
+                  path="/onboarding"
+                  element={
+                    <PrivateRoute>
+                      <OnboardingWizard />
+                    </PrivateRoute>
+                  }
+                />
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+            </Router>
+          </PlanoProvider>
         </UserProvider>
       </AvatarProvider>
     </NotificationProvider>

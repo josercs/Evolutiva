@@ -260,3 +260,10 @@ class CompletedContent(db.Model):
     content_id = db.Column(db.Integer, nullable=False)
     completed_at = db.Column(db.DateTime, default=db.func.now())
 
+class ProgressoMateria(db.Model):
+    __tablename__ = "progresso_materia"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    subject = db.Column(db.String, nullable=False)
+    percent = db.Column(db.Float, default=0)
+

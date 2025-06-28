@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, memo } from "react";
 import {
-  Menu, X, User, BarChart2, Bookmark, Award, Settings, LogOut, ChevronDown,
+  Menu, X, User, BarChart2, Bookmark, Award, Settings, LogOut, ChevronDown, Home,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useUser } from "../contexts/UserContext";
@@ -380,24 +380,27 @@ const NavbarModernized = () => {
   }, [setAvatarUrl, notify]);
 
   const navLinks = [
+    // Removido o botão "Início"
+    {
+      to: "/painel",
+      label: "Painel",
+      icon: <Award className="h-5 w-5" />,
+      description: "Acompanhe seu desenvolvimento e conquistas",
+      badge: undefined,
+    },
     {
       to: "/cursos",
       label: "Cursos",
       icon: <Bookmark className="h-5 w-5" />,
       description: "Explore nossos cursos disponíveis",
+      badge: undefined,
     },
     {
       to: "/trilhas",
       label: "Trilhas",
       icon: <BarChart2 className="h-5 w-5" />,
       description: "Siga suas trilhas de aprendizado personalizadas",
-    },
-    {
-      to: "/progresso",
-      label: "Progresso",
-      icon: <Award className="h-5 w-5" />,
-      badge: "+3",
-      description: "Acompanhe seu desenvolvimento e conquistas",
+      badge: undefined,
     },
   ];
 

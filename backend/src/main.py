@@ -7,7 +7,7 @@ from flask_cors import CORS
 import requests
 import psycopg2
 from sqlalchemy import text, select
-from models.models import db, HorariosEscolares, PlanoEstudo, User
+from models.models import db, HorariosEscolares, PlanoEstudo, User, ProgressoMateria
 import re
 import json
 from werkzeug.utils import secure_filename
@@ -662,5 +662,23 @@ def get_materias():
             for row in materias
         ]
     })
+
+# Exemplo Flask
+@app.route("/api/progresso/materias", methods=["GET"])
+@login_required
+def progresso_materias():
+    user_id = current_user.id
+    progresso = ProgressoMateria.query.filter_by(user_id=user_id).all()
+    return jsonify({
+        "progresso": [
+            {
+                "materia": p.subject,
+                "percent": p.percent,
+                "total_lessons": getattr(p, "total_lessons", None),
+                "completed_lessons": getattr(p, "completed_lessons", None)
+            }
+            for p in progresso
+        ]
+    })
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)

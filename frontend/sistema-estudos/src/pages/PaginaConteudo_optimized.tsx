@@ -438,15 +438,21 @@ const PaginaConteudoOtimizada: React.FC = () => {
                         {conteudo && conteudo.id && (
                           <button
                             onClick={async () => {
-                              console.log("user_id:", userId, "content_id:", conteudo.id, typeof userId, typeof conteudo.id);
+                              const userId = localStorage.getItem("userId"); // Certifique-se que está salvo corretamente após login/cadastro
+
+                              if (!userId || userId === "undefined") {
+                                alert("Usuário não autenticado. Faça login novamente.");
+                                return;
+                              }
+
                               await fetch('/api/conteudos/concluir', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  user_id: Number(userId),
-                                  content_id: Number(conteudo.id)
-                                }),
                                 credentials: 'include',
+                                body: JSON.stringify({
+                                  user_id: userId,       // deve ser o id real do usuário
+                                  content_id: conteudo.id  // id do conteúdo que está sendo concluído
+                                })
                               });
                               toast.success("Conteúdo marcado como concluído!");
                             }}
