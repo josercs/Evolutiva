@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Exemplos de SVGs customizados para cada instituição
 const icons: Record<string, React.ReactNode> = {
@@ -174,8 +174,22 @@ const CoursesPage = () => {
   const navigate = useNavigate();
 
   const handleCourseNavigation = (courseId: string) => {
-    navigate(`/cursos/${courseId}`);
+    navigate(`/cursos/${courseId}/materias`);
   };
+
+  const [cursos, setCursos] = useState<{ id: number; nome: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/cursos")
+      .then(res => res.json())
+      .then(data => {
+        setCursos(data);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div>Carregando cursos...</div>;
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-2 mt-8">
@@ -194,11 +208,17 @@ const CoursesPage = () => {
             Nossos Cursos
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {COURSE_LIST.map((course) => (
+            {cursos.map((curso) => (
               <CourseCard
-                key={course.id}
-                course={course}
-                onClick={() => handleCourseNavigation(course.id)}
+                key={curso.id}
+                course={{
+                  id: String(curso.id),
+                  title: curso.nome,
+                  description: "", // Adapte se o backend retornar descrição
+                  color: "from-blue-500 to-blue-700", // Ou defina por curso
+                  icon: icons[curso.nome.toLowerCase()] || icons['enem'],
+                }}
+                onClick={() => handleCourseNavigation(String(curso.id))}
               />
             ))}
           </div>

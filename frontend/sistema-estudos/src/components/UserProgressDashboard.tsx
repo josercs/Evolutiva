@@ -1,6 +1,6 @@
 import { BookOpen, Clock, Star, Award } from "lucide-react";
 import { Progress } from "./ui/progress";
-import { UserProgress } from "./UserProgress";
+import { UserProgress } from "./conteudo/UserProgress";
 
 interface UserProgressDashboardProps {
   user: {

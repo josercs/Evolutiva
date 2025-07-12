@@ -4,6 +4,7 @@ from models.models import db, User, PlanoEstudo, SubjectContent, HorariosEscolar
 from datetime import datetime, timedelta
 import random
 from servicos.plano_estudo_avancado import generate_study_plan, Conteudo as ConteudoModel, UserPreferences
+import json
 
 onboarding_bp = Blueprint('onboarding', __name__)
 
@@ -16,7 +17,13 @@ def onboarding():
     if not user:
         return jsonify({"error": "Usuário não encontrado."}), 404
 
-    user.idade = data.get("idade")
+    idade = data.get("idade")
+    try:
+        idade = int(idade)
+    except (TypeError, ValueError):
+        idade = None  # ou defina um valor padrão ou retorne erro
+
+    user.idade = idade
     user.escolaridade = data.get("escolaridade")
     user.objetivo = data.get("objetivo")
     user.dias_disponiveis = data.get("dias_disponiveis")
@@ -152,35 +159,34 @@ def gerar_plano_estudo():
     if not user or not user.has_onboarding:
         return jsonify({"error": "Onboarding não encontrado."}), 400
 
-    # Busque conteúdos do banco e converta para o modelo Pydantic
+    # Exemplo: buscar conteúdos do curso do usuário
     conteudos_db = SubjectContent.query.all()
     conteudos = [
         ConteudoModel(
             id=c.id,
             subject=c.subject,
             topic=c.topic,
-            # Adapte para difficulty, estimated_time, dependencies se existirem
+            difficulty=getattr(c, "difficulty", "medium"),
+            estimated_time=getattr(c, "estimated_time", 45),
+            dependencies=getattr(c, "dependencies", [])
         ) for c in conteudos_db
     ]
 
-    # Monte as preferências do usuário
     user_prefs = UserPreferences(
         available_days=user.dias_disponiveis or ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"],
         daily_study_time=int(user.tempo_diario or 120),
         learning_style=user.estilo_aprendizagem or "balanced",
         pace=user.ritmo or "moderate",
         start_time=user.horario_inicio or "08:00",
-        focus_areas=None  # Adapte se houver
+        focus_areas=user.focus_areas if hasattr(user, "focus_areas") else None
     )
 
-    # Gere o plano avançado
-    plano = generate_study_plan(user_prefs, conteudos)
-    # Salve no banco se necessário (adapte para seu modelo)
-    plano_estudo = PlanoEstudo(email=user.email, dados=plano.dict())
+    plano_semanal, plano_cards = generate_study_plan(user_prefs, conteudos)
+    plano_estudo = PlanoEstudo(email=user.email, dados=plano_semanal)
     db.session.add(plano_estudo)
     db.session.commit()
 
-    return jsonify({"plano_estudo": plano.dict()})
+    return jsonify({"plano_estudo": plano_semanal, "plano_cards": plano_cards})
 
 # --- Rota opcional: buscar plano do usuário logado ---
 @onboarding_bp.route('/api/planos/me', methods=['GET'])
@@ -188,5 +194,9 @@ def gerar_plano_estudo():
 def get_plano_me():
     plano = PlanoEstudo.query.filter_by(email=current_user.email).order_by(PlanoEstudo.id.desc()).first()
     if plano:
-        return jsonify({"plano_estudo": plano.dados})
+        # Garante que retorna objeto, não string JSON
+        dados = plano.dados
+        if isinstance(dados, str):
+            dados = json.loads(dados)
+        return jsonify({"plano_estudo": dados})
     return jsonify({"plano_estudo": None})

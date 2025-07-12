@@ -1,9 +1,22 @@
-import React, { useEffect, useReducer } from "react";
+import React, { useEffect, useReducer, useState } from "react";
 import { Progress } from "../components/ui/progress";
-import confetti from "canvas-confetti"; // npm install canvas-confetti
-import { motion } from "framer-motion"; // npm install framer-motion
+import confetti from "canvas-confetti";
+import { motion } from "framer-motion";
 import UserProgressDashboard from "../components/UserProgressDashboard";
+import { Calendar } from "../components/ui/calendar";
+import ptBR from "date-fns/locale/pt-BR";
+import { Button } from "../components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Checkbox } from "../components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 
+// Tipos e interfaces
 interface ProgressoMateria {
   materia: string;
   percent: number;
@@ -24,6 +37,46 @@ interface Achievement {
   icon?: string;
 }
 
+interface User {
+  name: string;
+  avatarUrl: string;
+  level: number;
+  badges: string[];
+  xp: number;
+  streak: number;
+}
+
+interface PlanoEstudo {
+  plano_diario?: any;
+  metas_semanais?: string[];
+  weekly_goals?: string[];
+  coverage?: Record<string, number>;
+  days?: Array<{
+    date: string;
+    blocks: Array<{
+      start_time: string;
+      end_time: string;
+      subject: string;
+      topic: string;
+      activity_type: string;
+      duration: number;
+      completed?: boolean;
+      status?: "pendente" | "dificuldade" | "ok";
+    }>;
+  }>;
+}
+
+interface AtividadePendente {
+  subject: string;
+  topic: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  activity_type: string;
+  status: "pendente" | "dificuldade";
+  idx: number;
+}
+
 type State = {
   progresso: ProgressoMateria[];
   materias: Materia[];
@@ -40,6 +93,7 @@ type Action =
   | { type: "SET_DATA"; payload: Partial<State> }
   | { type: "SET_ERROR"; payload: string };
 
+// Estado inicial
 const initialState: State = {
   progresso: [],
   materias: [],
@@ -51,6 +105,7 @@ const initialState: State = {
   curso: null,
 };
 
+// Reducer
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "SET_LOADING":
@@ -64,6 +119,7 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+// Hook para buscar dados
 const useFetchData = (userId: string | null, cursoId: string | null) => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
@@ -85,10 +141,6 @@ const useFetchData = (userId: string | null, cursoId: string | null) => {
           fetch(`/api/progress/user/${userId}/xp`).then(res => res.json()).catch(() => ({ xp: 0, streak: 0 })),
           fetch(`/api/progress/user/${userId}/curso`).then(res => res.json())
         ]);
-
-        if (cursoData.error) {
-          throw new Error(cursoData.error);
-        }
 
         dispatch({
           type: "SET_DATA",
@@ -119,7 +171,7 @@ const useFetchData = (userId: string | null, cursoId: string | null) => {
   return state;
 };
 
-// ProgressoMateriaCard com visual moderno
+// Componentes reutilizáveis
 const ProgressoMateriaCard = ({
   materia,
   percent,
@@ -131,165 +183,64 @@ const ProgressoMateriaCard = ({
   total?: number;
   completed?: number;
 }) => (
-  <div className="bg-gradient-to-br from-white via-indigo-50 to-indigo-100 rounded-2xl p-5 shadow-md hover:shadow-xl transition-shadow duration-200 border border-indigo-100 group">
+  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700 group">
     <div className="flex justify-between items-center mb-2">
-      <span className="font-semibold text-gray-800 group-hover:text-indigo-700 transition-colors">{materia}</span>
-      <span className="text-base font-bold text-indigo-600 group-hover:text-indigo-800 transition-colors">
+      <span className="font-medium text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+        {materia}
+      </span>
+      <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
         {percent}%
       </span>
     </div>
-    <Progress value={percent} className="h-2 bg-indigo-100" />
+    <Progress value={percent} className="h-2 bg-gray-100 dark:bg-gray-700" />
     {completed !== undefined && total !== undefined && (
-      <div className="mt-2 text-xs text-gray-500">
+      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
         {completed} de {total} lições concluídas
       </div>
     )}
   </div>
 );
 
-// AchievementItem com microinteração e visual vibrante
 const AchievementItem = ({ achievement }: { achievement: Achievement }) => (
-  <li className="bg-gradient-to-r from-indigo-100 via-white to-purple-100 rounded-xl p-4 flex items-start gap-4 shadow hover:scale-[1.025] hover:shadow-lg transition-all duration-200">
-    <div className="bg-indigo-200 p-3 rounded-full shadow-inner flex items-center justify-center">
-      <span role="img" aria-label="Troféu" className="text-2xl">{achievement.icon || "🏆"}</span>
+  <li className="bg-white dark:bg-gray-800 rounded-lg p-3 flex items-start gap-3 shadow-sm hover:shadow-md transition-all border border-gray-200 dark:border-gray-700">
+    <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-full">
+      <span role="img" aria-label="Troféu" className="text-xl">
+        {achievement.icon || "🏆"}
+      </span>
     </div>
     <div className="flex-1">
-      <div className="font-bold text-gray-800">{achievement.title}</div>
-      <div className="text-sm text-gray-600 mt-1">{achievement.description}</div>
-      <div className="text-xs text-gray-400 mt-2">
-        Conquistado em{" "}
-        {new Date(achievement.earned_at).toLocaleDateString("pt-BR", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })}
+      <div className="font-semibold text-gray-800 dark:text-gray-200">{achievement.title}</div>
+      <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{achievement.description}</div>
+      <div className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+        Conquistado em {new Date(achievement.earned_at).toLocaleDateString("pt-BR")}
       </div>
     </div>
   </li>
 );
 
-// StatCard com ícone
-const StatCard = ({ value, label, color }: {
+const StatCard = ({
+  value,
+  label,
+  icon,
+}: {
   value: React.ReactNode;
   label: string;
-  color: 'indigo' | 'green' | 'yellow';
-}) => {
-  const colors = {
-    indigo: { bg: 'from-indigo-500 via-indigo-400 to-purple-500', text: 'text-white' },
-    green: { bg: 'from-emerald-500 via-emerald-400 to-green-500', text: 'text-white' },
-    yellow: { bg: 'from-amber-400 via-yellow-300 to-yellow-500', text: 'text-white' },
-  };
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4 }}
-      className={`bg-gradient-to-br ${colors[color].bg} rounded-2xl p-6 shadow-lg flex flex-col items-center hover:scale-105 transition-transform duration-200`}
-    >
-      <span className={`text-4xl font-extrabold mb-1 ${colors[color].text}`}>{value}</span>
-      <span className="text-sm font-medium text-white/90">{label}</span>
-    </motion.div>
-  );
-};
-
-// ProgressSection com grid responsivo e animação
-const ProgressSection = ({ loading, erro, materias }: {
-  loading: boolean;
-  erro: string | null;
-  materias: Array<{
-    materia: string;
-    percent: number;
-    total?: number;
-    completed?: number;
-  }>;
+  icon: string;
 }) => (
-  <section className="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-indigo-100">
-    <div className="flex justify-between items-center mb-6">
-      <h2 className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Progresso por Matéria</h2>
-      <span className="text-sm text-indigo-600 font-medium cursor-pointer hover:underline">Ver todas</span>
+  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+    <div className="flex items-center gap-3">
+      <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg">
+        <span className="text-xl">{icon}</span>
+      </div>
+      <div>
+        <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">{value}</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">{label}</div>
+      </div>
     </div>
-    {loading ? (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="animate-pulse">
-            <div className="h-4 bg-indigo-100 rounded w-3/4 mb-2"></div>
-            <div className="h-2 bg-indigo-50 rounded-full"></div>
-          </div>
-        ))}
-      </div>
-    ) : erro ? (
-      <div className="text-red-500 bg-red-50 p-3 rounded-lg">{erro}</div>
-    ) : materias.length === 0 ? (
-      <div className="text-center py-8">
-        <div className="text-3xl mb-2">📚</div>
-        <p className="text-gray-500">Nenhuma matéria encontrada.</p>
-      </div>
-    ) : (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {materias.map((item) => (
-          <ProgressoMateriaCard key={item.materia} {...item} />
-        ))}
-      </div>
-    )}
-  </section>
+  </div>
 );
 
-// AchievementsSection com layout aprimorado
-const AchievementsSection = ({ achievements, loading }: {
-  achievements: Achievement[];
-  loading: boolean;
-}) => (
-  <section className="bg-white rounded-2xl shadow-sm p-6 border border-indigo-100">
-    <div className="flex justify-between items-center mb-6">
-      <h2 className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Conquistas</h2>
-      <span className="text-sm text-indigo-600 font-medium cursor-pointer hover:underline">Ver todas</span>
-    </div>
-    {loading ? (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="animate-pulse flex gap-3">
-            <div className="h-12 w-12 bg-indigo-100 rounded-full"></div>
-            <div className="flex-1">
-              <div className="h-4 bg-indigo-100 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-indigo-50 rounded w-full"></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : achievements.length === 0 ? (
-      <div className="text-center py-8">
-        <div className="text-3xl mb-2">🥲</div>
-        <p className="text-gray-500">Nenhuma conquista ainda.</p>
-        <p className="text-sm text-gray-400 mt-1">Continue estudando para desbloquear!</p>
-      </div>
-    ) : (
-      <ul className="space-y-3">
-        {achievements.map((ach) => (
-          <AchievementItem key={ach.id} achievement={ach} />
-        ))}
-      </ul>
-    )}
-  </section>
-);
-
-// MetasSemanaSection com visual moderno
-const MetasSemanaSection = ({ metas }: { metas: string[] }) => (
-  <section className="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-indigo-100">
-    <h2 className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-6">Metas da Semana</h2>
-    <ul className="space-y-3">
-      {metas.map((meta, i) => (
-        <li key={i} className="flex items-start gap-3">
-          <div className="bg-indigo-200 p-1 rounded-full mt-1">
-            <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
-          </div>
-          <span className="text-gray-700">{meta}</span>
-        </li>
-      ))}
-    </ul>
-  </section>
-);
-
-// PainelPage com layout e microinterações modernas
+// Componente principal
 const PainelPage: React.FC = () => {
   const userId = localStorage.getItem("userId");
   const cursoId = localStorage.getItem("cursoId");
@@ -304,35 +255,101 @@ const PainelPage: React.FC = () => {
     curso
   } = useFetchData(userId, cursoId);
 
-  const [plano, setPlano] = React.useState<{
-    plano_diario?: any;
-    metas_semanais?: string[];
-    weekly_goals?: string[];
-    coverage?: Record<string, number>;
-    days?: Array<{
-      date: string;
-      blocks: Array<{
-        start_time: string;
-        end_time: string;
-        subject: string;
-        topic: string;
-        activity_type: string;
-        duration: number;
-      }>;
-    }>;
-  } | null>(null);
+  const [plano, setPlano] = useState<PlanoEstudo | null>(null);
+  const [user, setUser] = useState<User>({
+    name: "",
+    avatarUrl: "",
+    level: 1,
+    badges: [],
+    xp: 0,
+    streak: 0,
+  });
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [materiaFiltro, setMateriaFiltro] = useState("");
+  const [tipoFiltro, setTipoFiltro] = useState("");
+  const [pendencias, setPendencias] = useState<AtividadePendente[]>([]);
+  const [globalLoading, setGlobalLoading] = useState(true);
+  const [isResolving, setIsResolving] = useState(false);
+  const [isAddingActivity, setIsAddingActivity] = useState(false);
+  const [dataRevisaoSelecionada, setDataRevisaoSelecionada] = useState<Date | undefined>(undefined);
 
+  // Buscar dados do plano de estudo
   useEffect(() => {
     const fetchPlano = async () => {
-      const res = await fetch("/api/planos/me", { credentials: "include" });
-      const data = await res.json();
-      const plano = data.plano_estudo; // WeeklyPlan
-      setPlano(plano);
+      try {
+        const res = await fetch("/api/planos/me", { credentials: "include" });
+        const data = await res.json();
+        setPlano(data.plano_estudo);
+      } catch (error) {
+        console.error("Erro ao buscar plano de estudo:", error);
+      }
     };
-
     fetchPlano();
   }, []);
 
+  // Buscar dados do usuário
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch("/api/users/me", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setUser({
+            name: data.nome || "Usuário",
+            avatarUrl: data.avatar || "",
+            level: data.level || 1,
+            badges: data.badges || [],
+            xp: data.xp || xp,
+            streak: data.streak || streak,
+          });
+        }
+      } catch (error) {
+        console.error("Erro ao buscar dados do usuário:", error);
+      }
+    };
+    fetchUser();
+  }, [xp, streak]);
+
+  // Buscar pendências
+  const fetchPendencias = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const email = user.email;
+      const res = await fetch(`/api/planos/pendencias?email=${email}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Erro ao carregar pendências");
+      const data = await res.json();
+      setPendencias(data.pendencias || []);
+    } catch (error) {
+      console.error("Erro ao buscar pendências:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendencias();
+  }, [plano]); // <-- assim, sempre que o plano mudar, recarrega as pendências
+
+  // Gerenciar loading global
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        await Promise.all([
+          // Aguarda os dados principais serem carregados
+          new Promise(resolve => {
+            if (!loading) resolve(null);
+          }),
+          // Outras chamadas podem ser adicionadas aqui
+        ]);
+      } finally {
+        setGlobalLoading(false);
+      }
+    };
+
+    if (!loading) {
+      fetchAllData();
+    }
+  }, [loading]);
+
+  // Calcular progresso geral
   const materiasComProgresso = React.useMemo(() =>
     materias
       .filter(mat => progresso.some(p => p.materia === mat.nome))
@@ -358,367 +375,482 @@ const PainelPage: React.FC = () => {
     };
   }, [materiasComProgresso]);
 
-  const [materiaFiltro, setMateriaFiltro] = React.useState("");
-  const [tipoFiltro, setTipoFiltro] = React.useState("");
-
+  // Filtrar atividades
   const atividadesFiltradas = React.useMemo(() => {
-    return plano?.days?.flatMap(day => day.blocks).filter(block => {
+    return plano?.days?.flatMap(day => day.blocks.filter(block => {
       const matchesMateria = materiaFiltro ? block.subject === materiaFiltro : true;
       const matchesTipo = tipoFiltro ? block.activity_type === tipoFiltro : true;
-      return matchesMateria && matchesTipo;
-    }) || [];
+      return matchesMateria && matchesTipo && !block.completed;
+    })) || [];
   }, [plano, materiaFiltro, tipoFiltro]);
 
-  if (!userId || !cursoId) {
-    return (
-      <div className="max-w-3xl mx-auto py-8 px-2 mt-8">
-        <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-6 py-6">
-          <div className="text-red-600">Usuário não autenticado</div>
-        </div>
-      </div>
-    );
-  }
-
-  async function marcarBlocoComoConcluido(date: string, idx: number): Promise<void> {
-    if (!plano || !plano.days) return;
+  // Função para marcar atividade como concluída
+  const marcarAtividadeComoConcluida = async (atividade: any) => {
     try {
-      // Encontra o bloco correspondente
-      const day = plano.days.find(d => d.date === date);
-      if (!day) return;
-      const block = day.blocks[idx];
-      if (!block) return;
-
-      // Chama a API para marcar como concluído
       await fetch("/api/planos/concluir-bloco", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          date,
-          blockIndex: idx,
+          atividadeId: atividade.id
         }),
       });
 
-      // Atualiza o estado local removendo o bloco concluído
       setPlano(prev => {
         if (!prev || !prev.days) return prev;
         return {
           ...prev,
-          days: prev.days.map(d =>
-            d.date === date
-              ? { ...d, blocks: d.blocks.filter((_, i) => i !== idx) }
-              : d
-          ),
-        };
-      });
-    } catch (error) {
-      alert("Erro ao marcar bloco como concluído.");
-    }
-  }
-
-  async function marcarAtividadeComoConcluida(atividade: { start_time: string; end_time: string; subject: string; topic: string; activity_type: string; duration: number; }): Promise<void> {
-    if (!plano || !plano.days) return;
-    try {
-      // Encontra o dia e o bloco correspondente
-      const dayIdx = plano.days.findIndex(day =>
-        day.blocks.some(block =>
-          block.start_time === atividade.start_time &&
-          block.end_time === atividade.end_time &&
-          block.subject === atividade.subject &&
-          block.topic === atividade.topic &&
-          block.activity_type === atividade.activity_type &&
-          block.duration === atividade.duration
-        )
-      );
-      if (dayIdx === -1) return;
-      const blockIdx = plano.days[dayIdx].blocks.findIndex(block =>
-        block.start_time === atividade.start_time &&
-        block.end_time === atividade.end_time &&
-        block.subject === atividade.subject &&
-        block.topic === atividade.topic &&
-        block.activity_type === atividade.activity_type &&
-        block.duration === atividade.duration
-      );
-      if (blockIdx === -1) return;
-
-      // Chama a API para marcar como concluído
-      await fetch("/api/planos/concluir-bloco", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          date: plano.days[dayIdx].date,
-          blockIndex: blockIdx,
-        }),
-      });
-
-      // Atualiza o estado local removendo o bloco concluído
-      setPlano(prev => {
-        if (!prev || !prev.days) return prev;
-        return {
-          ...prev,
-          days: prev.days.map((d, i) =>
-            i === dayIdx
-              ? { ...d, blocks: d.blocks.filter((_, idx) => idx !== blockIdx) }
-              : d
-          ),
+          days: prev.days.map(day => ({
+            ...day,
+            blocks: day.blocks.map(block => 
+              block === atividade ? { ...block, completed: true } : block
+            )
+          }))
         };
       });
 
-      // 🎉 Confete visual
       confetti({
         particleCount: 80,
         spread: 60,
         origin: { y: 0.7 },
       });
     } catch (error) {
-      alert("Erro ao marcar atividade como concluída.");
+      console.error("Erro ao marcar atividade:", error);
     }
+  };
+
+  // Atualizar plano de estudos
+  const atualizarPlano = async (email: string) => {
+    try {
+      const res = await fetch(`/api/planos/me?email=${email}`, { credentials: "include" });
+      const data = await res.json();
+      setPlano(data.plano_estudo);
+    } catch (error) {
+      console.error("Erro ao atualizar plano:", error);
+    }
+  };
+
+  const agendarRevisao = async (block: AtividadePendente, dataRevisao: Date | null) => {
+    if (!plano || !dataRevisao) return;
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (!user.email) {
+      alert("Usuário não autenticado.");
+      return;
+    }
+
+    const revisaoDateStr = dataRevisao.toISOString().split("T")[0];
+
+    let diaRevisao = plano.days?.find(d => d.date === revisaoDateStr);
+    if (!diaRevisao) {
+      diaRevisao = { date: revisaoDateStr, blocks: [] };
+      plano.days = [...(plano.days || []), diaRevisao];
+    }
+
+    diaRevisao.blocks.push({
+      start_time: block.start_time,
+      end_time: block.end_time,
+      subject: block.subject,
+      topic: block.topic,
+      activity_type: "revisão",
+      duration: 30,
+      completed: false,
+      status: "pendente"
+    });
+
+    await fetch("/api/planos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email: user.email, plano }),
+    });
+
+    alert("Revisão agendada para " + revisaoDateStr + "!");
+    setPlano({ ...plano });
+  };
+
+  // Se não estiver autenticado
+  if (!userId || !cursoId) {
+    return (
+      <div className="max-w-6xl mx-auto p-4">
+        <div className="text-red-500 bg-red-50 dark:bg-red-900/20 p-4 rounded-lg text-center">
+          <p className="font-medium">Usuário não autenticado</p>
+          <p className="text-sm mt-1">Por favor, faça login e selecione um curso</p>
+        </div>
+      </div>
+    );
   }
 
-  // Dados para o dashboard centralizado
-  const [user, setUser] = React.useState({
-    name: "",
-    avatarUrl: "",
-    level: 1,
-    badges: [],
-    xp: 0,
-    streak: 0,
-  });
-
-  useEffect(() => {
-    // Exemplo: buscar dados do usuário autenticado
-    async function fetchUser() {
-      try {
-        const res = await fetch("/api/user/me", { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          setUser({
-            name: data.nome || "Usuário",
-            avatarUrl: data.avatar || "",
-            level: data.level || 1,
-            badges: data.badges || [],
-            xp: data.xp || xp,
-            streak: data.streak || streak,
-          });
-        } else {
-          setUser(prev => ({ ...prev, xp, streak }));
-        }
-      } catch {
-        setUser(prev => ({ ...prev, xp, streak }));
-      }
-    }
-    fetchUser();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [xp, streak]);
+  // Tela de loading
+  if (globalLoading) {
+    return (
+      <div className="max-w-6xl mx-auto p-4 flex justify-center items-center h-screen">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-gray-600 dark:text-gray-400">Carregando seu painel...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-2 mt-8">
-      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-6 py-6">
-        <header className="mb-12 text-center">
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-5xl font-extrabold mb-2 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent drop-shadow-sm"
-          >
-            🚀 Meu Progresso
-          </motion.h1>
-          {curso && (
-            <p className="text-lg text-gray-600">
-              Curso atual: <span className="font-semibold text-indigo-600">{curso}</span>
-            </p>
-          )}
-        </header>
+    <div className="max-w-3xl mx-auto p-4 space-y-8">
+      {/* Cabeçalho */}
+      <header className="text-center space-y-2">
+        <motion.h1 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-3xl font-bold text-gray-900 dark:text-white"
+        >
+          Meu Progresso
+        </motion.h1>
+        {curso && (
+          <p className="text-gray-600 dark:text-gray-400">
+            Curso atual: <span className="font-medium text-indigo-600 dark:text-indigo-400">{curso}</span>
+          </p>
+        )}
+      </header>
 
-        {/* DASHBOARD CENTRALIZADO */}
-        <div className="mb-12">
-          <UserProgressDashboard
-            user={user}
-            progresso={materiasComProgresso.map(m => ({
-              materia: m.materia,
-              percent: m.percent
-            }))}
-            achievements={achievements.map(a => ({
-              id: a.id,
-              title: a.title,
-              description: a.description,
-              date: a.earned_at,
-            }))}
-            studyTime="2h15min"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
-          <StatCard value={<><span className="mr-1">🏅</span>{xp}</>} label="XP Acumulado" color="indigo" />
-          <StatCard value={<><span className="mr-1">🔥</span>{streak}</>} label="Dias consecutivos" color="green" />
-          <StatCard value={<><span className="mr-1">📈</span>{percentGeral}%</>} label="Progresso Geral" color="yellow" />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 mb-12">
-          <div className="lg:col-span-3 flex flex-col gap-8">
-            <ProgressSection loading={loading} erro={erro} materias={materiasComProgresso} />
-            {plano?.metas_semanais && <MetasSemanaSection metas={plano.metas_semanais} />}
-            {plano && plano.coverage && (
-              <motion.section
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4 }}
-                className="bg-gradient-to-br from-white via-indigo-50 to-purple-50 rounded-3xl shadow-xl p-10 mb-12 border border-indigo-100"
-              >
-                <h2 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-8 flex items-center gap-2">
-                  <span className="inline-block text-3xl">📊</span>
-                  Cobertura por Matéria
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                  {Object.entries(plano.coverage).map(([subject, percent]) => (
-                    <motion.div
-                      key={subject}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="bg-white/90 rounded-xl p-5 shadow group hover:shadow-lg transition-all border border-indigo-100 flex flex-col gap-2"
-                    >
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="font-semibold text-gray-800 group-hover:text-indigo-700 transition-colors">
-                          📚 {subject}
-                        </span>
-                        <span className="text-lg font-bold text-indigo-600 group-hover:text-indigo-800 transition-colors">
-                          {Number(percent)}%
-                        </span>
-                      </div>
-                      <Progress value={Number(percent)} className="h-2 bg-indigo-100" />
-                      <div className="mt-1 flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full transition-colors duration-300"
-                          style={{
-                            background:
-                              Number(percent) >= 100
-                                ? "#22c55e"
-                                : Number(percent) >= 60
-                                ? "#facc15"
-                                : "#f87171",
-                            boxShadow:
-                              Number(percent) >= 100
-                                ? "0 0 0 2px #bbf7d0"
-                                : Number(percent) >= 60
-                                ? "0 0 0 2px #fef9c3"
-                                : "0 0 0 2px #fee2e2",
-                          }}
-                        />
-                        <span className="text-xs font-medium text-gray-600">
-                          {Number(percent) >= 100
-                            ? "Completo"
-                            : Number(percent) >= 60
-                            ? "Bom progresso"
-                            : "Em andamento"}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.section>
-            )}
-          </div>
-          <div>
-            <AchievementsSection achievements={achievements} loading={loading} />
-          </div>
-        </div>
-
-        {/* Seção de Atividades moderna */}
+      {/* Seção de Pendências */}
+      {pendencias.length > 0 && (
         <motion.section
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="bg-white rounded-2xl shadow-sm p-8 mb-12 border border-indigo-100"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-red-200 dark:border-red-900/50"
         >
-          <h2 className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-6 flex items-center gap-2">
-            📅 Atividades Pendentes
+          <h2 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4 flex items-center gap-2">
+            <span>⚠️</span>
+            Atividades Pendentes ou com Dificuldade
           </h2>
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
-              <label htmlFor="materia-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                <span className="mr-1">📖</span>Matéria
-              </label>
-              <select
-                id="materia-filter"
-                onChange={e => setMateriaFiltro(e.target.value)}
-                className="w-full border border-indigo-200 rounded-xl px-4 py-2 text-sm bg-indigo-50 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all shadow-sm hover:shadow-md"
+          <ul className="space-y-3">
+            {pendencias.map((block, i) => (
+              <motion.li
+                key={i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: i * 0.05 }}
+                className="flex flex-col sm:flex-row sm:items-center justify-between bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-lg p-3 gap-3"
               >
-                <option value="">Todas as matérias</option>
-                {(plano?.coverage ? Object.keys(plano.coverage) : []).map(m => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1">
-              <label htmlFor="tipo-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                <span className="mr-1">🏷️</span>Tipo
-              </label>
-              <select
-                id="tipo-filter"
-                onChange={e => setTipoFiltro(e.target.value)}
-                className="w-full border border-indigo-200 rounded-xl px-4 py-2 text-sm bg-indigo-50 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all shadow-sm hover:shadow-md"
-              >
-                <option value="">Todos os tipos</option>
-                <option value="teoria">Teoria</option>
-                <option value="prática">Prática</option>
-                <option value="revisão">Revisão</option>
-                <option value="quiz">Quiz</option>
-              </select>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {atividadesFiltradas.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className="text-center py-10 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl"
-              >
-                <div className="text-4xl mb-2">🎉</div>
-                <p className="text-lg text-gray-700 font-semibold">Nenhuma atividade pendente!</p>
-                <p className="text-sm text-gray-400 mt-1">Você está em dia com seus estudos</p>
-              </motion.div>
-            ) : (
-              atividadesFiltradas.map((atividade, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="p-5 bg-gradient-to-br from-white via-indigo-50 to-indigo-100 rounded-xl border border-indigo-100 flex justify-between items-center hover:bg-white hover:shadow-lg transition-all duration-200"
-                >
-                  <div>
-                    <p className="font-medium text-gray-800">
-                      <span className="text-indigo-600">📚 {atividade.subject}</span> - {atividade.topic}
-                    </p>
-                    <div className="flex gap-3 mt-1">
-                      <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full capitalize">
-                        {atividade.activity_type}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {atividade.duration} min • {atividade.start_time}-{atividade.end_time}
-                      </span>
-                    </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-800 dark:text-gray-200">
+                    {block.subject} - {block.topic}
                   </div>
-                  <button
-                    onClick={() => marcarAtividadeComoConcluida(atividade)}
-                    className="text-sm bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-6 py-2 rounded-lg shadow transition-all duration-200 font-semibold"
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {block.date} • {block.start_time}-{block.end_time} • {block.activity_type}
+                  </div>
+                  <div className="text-xs mt-1">
+                    <span className={`px-2 py-1 rounded-full ${
+                      block.status === "pendente" 
+                        ? "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200" 
+                        : "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200"
+                    }`}>
+                      {block.status === "pendente" ? "Não estudado" : "Com dúvida"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-700"
+                      >
+                        Agendar Revisão
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-4">
+                      <div className="space-y-2">
+                        <Calendar
+                          mode="single"
+                          selected={dataRevisaoSelecionada}
+                          onSelect={setDataRevisaoSelecionada}
+                          locale={ptBR}
+                        />
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={() => agendarRevisao(block, dataRevisaoSelecionada ?? null)}
+                        >
+                          Agendar para data escolhida
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            const proximoSabado = getProximoSabado();
+                            agendarRevisao(block, proximoSabado);
+                          }}
+                        >
+                          Agendar para sábado
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                    disabled={isResolving}
+                    onClick={async () => {
+                      const user = JSON.parse(localStorage.getItem("user") || "{}");
+                      if (!user.email) {
+                        alert("Usuário não autenticado.");
+                        return;
+                      }
+                      try {
+                        setIsResolving(true);
+                        await fetch("/api/planos/atualizar-status-bloco", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          credentials: "include",
+                          body: JSON.stringify({
+                            email: user.email,
+                            date: block.date,
+                            blockIndex: block.idx,
+                            status: "ok"
+                          }),
+                        });
+                        await atualizarPlano(user.email);
+                        await fetchPendencias(); // <-- recarrega do backend
+                        setPendencias(prev => prev.filter(p => p.idx !== block.idx));
+                      } catch (error) {
+                        console.error("Erro ao marcar como resolvido:", error);
+                      } finally {
+                        setIsResolving(false);
+                      }
+                    }}
                   >
-                    Concluir
-                  </button>
-                </motion.div>
-              ))
-            )}
-          </div>
+                    {isResolving ? "Processando..." : "Resolvido"}
+                  </Button>
+                </div>
+              </motion.li>
+            ))}
+          </ul>
         </motion.section>
+      )}
+
+      {/* Dashboard do usuário */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard 
+          value={xp} 
+          label="XP Acumulado" 
+          icon="🏅" 
+        />
+        <StatCard 
+          value={streak} 
+          label="Dias consecutivos" 
+          icon="🔥" 
+        />
+        <StatCard 
+          value={`${percentGeral}%`} 
+          label="Progresso Geral" 
+          icon="📈" 
+        />
+      </section>
+
+      {/* Seção de progresso por matéria */}
+      <section className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Progresso por Matéria</h2>
+          <Button variant="ghost" size="sm">
+            Ver todas
+          </Button>
+        </div>
+        
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                <div className="h-2 bg-gray-100 dark:bg-gray-600 rounded-full"></div>
+              </div>
+            ))}
+          </div>
+        ) : erro ? (
+          <div className="text-red-500 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+            {erro}
+          </div>
+        ) : materiasComProgresso.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            Nenhuma matéria encontrada.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {materiasComProgresso.map((item) => (
+              <ProgressoMateriaCard key={item.materia} {...item} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Calendário em um card/section separado */}
+      <section className="flex justify-center">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 shadow-md border border-gray-200 dark:border-gray-700 w-full max-w-6xl mx-auto">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 text-center">
+            Selecione a data
+          </h2>
+          <div className="flex justify-center">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={setDate}
+              locale={ptBR}
+              className="max-w-md w-full" // Limita a largura do calendário e centraliza
+              classNames={{
+                table: "mx-auto", // Centraliza a tabela
+                head_row: "grid grid-cols-7 mb-2",
+                head_cell: "text-center text-xs font-semibold text-gray-500 dark:text-gray-400 py-2",
+                row: "grid grid-cols-7 gap-y-2",
+                cell: "flex items-center justify-center h-14",
+                day: "flex items-center justify-center w-12 h-12 rounded-lg transition-colors text-base font-medium select-none cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30",
+                day_selected: "bg-indigo-600 text-white hover:bg-indigo-700",
+                day_today: "border border-indigo-400 font-bold",
+                day_outside: "text-gray-300 dark:text-gray-600",
+                day_disabled: "opacity-40 pointer-events-none",
+                nav_button: "rounded-full p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors",
+              }}
+              showOutsideDays
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Cards de Atividades e Resumo Semanal */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Card: Atividades */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <h3 className="font-medium text-lg text-gray-700 dark:text-gray-300">
+              Atividades para {date?.toLocaleDateString("pt-BR") || 'hoje'}
+            </h3>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Select onValueChange={setMateriaFiltro}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="Filtrar matéria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {materias.map((materia) => (
+                    <SelectItem key={materia.id} value={materia.nome}>
+                      {materia.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select onValueChange={setTipoFiltro}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="Filtrar tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="estudo">Estudo</SelectItem>
+                  <SelectItem value="exercicio">Exercício</SelectItem>
+                  <SelectItem value="revisao">Revisão</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {/* Lista de atividades */}
+          <div className="space-y-3">
+            {(() => {
+              const dia = plano?.days?.find(d => d.date === date?.toISOString().split('T')[0]);
+              const blocos = dia?.blocks?.filter(block => {
+                const matchesMateria = materiaFiltro ? block.subject === materiaFiltro : true;
+                const matchesTipo = tipoFiltro ? block.activity_type === tipoFiltro : true;
+                return matchesMateria && matchesTipo && !block.completed;
+              }) || [];
+              
+              if (blocos.length === 0) {
+                return (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                    <p>Nenhuma atividade planejada para este dia</p>
+                    <Button 
+                      variant="link" 
+                      className="mt-2 text-indigo-600 dark:text-indigo-400 gap-1"
+                      onClick={() => setIsAddingActivity(true)}
+                    >
+                      Planejar atividade
+                    </Button>
+                  </div>
+                );
+              }
+              
+              return (
+                <ul className="space-y-3">
+                  {blocos.map((block, idx) => (
+                    <li key={idx} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg flex justify-between items-center border border-gray-200 dark:border-gray-600 hover:shadow-xs transition-all">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={block.completed}
+                          onCheckedChange={() => marcarAtividadeComoConcluida(block)}
+                          className="mt-1 border-gray-300 dark:border-gray-500"
+                        />
+                        <div>
+                          <p className="font-medium text-gray-800 dark:text-gray-200">
+                            {block.subject} - {block.topic}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <span>{block.start_time} - {block.end_time}</span>
+                            <span>•</span>
+                            <span>{block.duration} min</span>
+                            <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300">
+                              {block.activity_type}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                        >
+                          Editar
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50"
+                          onClick={() => marcarAtividadeComoConcluida(block)}
+                        >
+                          Concluir
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()}
+          </div>
+        {/* Card: Resumo Semanal */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
+          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Resumo Semanal</h3>
+          <div className="grid grid-cols-1 gap-4 text-center">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Dias estudados</p>
+              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">5/7</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Horas esta semana</p>
+              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">12h 45min</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tarefas concluídas</p>
+              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">18/25</p>
+            </div>
+          </div>
+        </div>
       </div>
+    </div>
     </div>
   );
 };
 
-export default PainelPage;
+function getProximoSabado(fromDate?: Date) {
+  const date = fromDate ? new Date(fromDate) : new Date();
+  const day = date.getDay();
+  const diff = (6 - day + 7) % 7 || 7; // 6 = sábado
+  date.setDate(date.getDate() + diff);
+  return date;
+}
 
+export default PainelPage;

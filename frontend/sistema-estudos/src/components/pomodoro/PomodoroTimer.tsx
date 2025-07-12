@@ -115,6 +115,24 @@ export const usePomodoro = () => {
         };
     }, [running, mode]);
 
+    // ... (use o componente já existente)
+    // Ao finalizar um ciclo, faça:
+    // Exemplo de definição das variáveis (ajuste conforme necessário)
+    const inicio = new Date().toISOString();
+    const fim = new Date().toISOString();
+    const tipo = mode;
+    const duracao = mode === 'work' ? 1500 : 300;
+
+    // Exemplo de chamada ao finalizar ciclo:
+    fetch("/api/progress/pomodoro", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        inicio, fim, tipo, duracao
+      })
+    });
+
     return {
         pomodoro: {
             time,

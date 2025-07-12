@@ -23,3 +23,12 @@ export const AchievementBadge = ({ achievement }: any) => (
     )}
   </motion.div>
 );
+
+// Fetch achievements data
+export const fetchAchievements = async (userId: string) => {
+  const response = await fetch(`/api/progress/achievements/${userId}`, { credentials: "include" });
+  if (!response.ok) {
+    throw new Error('Network response was not ok');
+  }
+  return response.json();
+};

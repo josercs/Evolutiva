@@ -28,6 +28,7 @@ export function ModalQuiz({
   onClose,
 }: QuizModalProps) {
   const [progress, setProgress] = useState(0);
+  const [iaFeedback, setIaFeedback] = useState<string>("");
 
   useEffect(() => {
     if (loading) {
@@ -40,6 +41,25 @@ export function ModalQuiz({
       setProgress(0);
     }
   }, [loading]);
+
+  // Chame a IA ao submeter o quiz
+  useEffect(() => {
+    if (showResults && questions.length && Object.keys(selectedAnswers).length) {
+      async function fetchFeedback() {
+        const res = await fetch("/api/ia/quiz-feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            questions,
+            answers: selectedAnswers,
+          }),
+        });
+        const data = await res.json();
+        setIaFeedback(data.feedback);
+      }
+      fetchFeedback();
+    }
+  }, [showResults, questions, selectedAnswers]);
 
   if (!show) return null;
 
@@ -141,8 +161,8 @@ export function ModalQuiz({
               <strong className="block text-indigo-800 mb-2 text-lg">
                 Resumo da IA:
               </strong>
-              {feedback ? (
-                <span>{feedback}</span>
+              {iaFeedback ? (
+                <span>{iaFeedback}</span>
               ) : (
                 <span className="text-gray-400">
                   Aguardando feedback da IA...

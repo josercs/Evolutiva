@@ -1,5 +1,5 @@
 import React from "react";
-import { BotaoAcao } from "./BotaoAcao";
+import { BotaoAcao } from "../botoes/BotaoAcao";
 
 
 function Divider() {

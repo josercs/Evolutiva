@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import CourseCard from '../components/CourseCard';
+import CourseCard from '../components/cursos/CourseCard';
 
 type Course = {
   id: number;

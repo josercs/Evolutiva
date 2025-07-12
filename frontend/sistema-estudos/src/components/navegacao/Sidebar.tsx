@@ -4,8 +4,8 @@ import {
   ChevronRight, FolderOpen, Target, MessageCircle, ClipboardList, Menu as MenuIcon, X as XIcon, Award,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useUser } from "../contexts/UserContext";
-import { useOnboarding } from '../contexts/OnboardingContext'; // Importa o hook de onboarding global
+import { useUser } from "../../contexts/UserContext";
+import { useOnboarding } from '../../contexts/OnboardingContext'; // Importa o hook de onboarding global
 // --- Tipos e Estrutura de Dados ---
 interface MenuItem {
   id: string;
@@ -25,15 +25,15 @@ const menuData: MenuItem[] = [
     id: 'home',
     label: 'Início',
     icon: Home,
-    path: '/', // Vai para a landing page pública
+    path: '/',  
   },
   {
     id: 'painel',
     label: 'Painel',
     icon: Award,
-    path: '/painel', // Vai para o painel do usuário logado
+    path: '/painel',
   },
-  { id: 'planejamentoTitle', label: 'Planejamento', isTitle: true },
+  /*{ id: 'planejamentoTitle', label: 'Planejamento', isTitle: true },
   {
     id: 'planejamento',
     label: 'Planejamento',
@@ -44,11 +44,16 @@ const menuData: MenuItem[] = [
       { id: 'cronograma', label: 'Cronograma', icon: ListChecks, path: '/cronograma', isSubItem: true },
       { id: 'metas', label: 'Metas', icon: Target, path: '/metas', isSubItem: true },
     ],
-  },
+  },**/
   { id: 'estudoTitle', label: 'Estudo', isTitle: true },
-  { id: 'materias', label: 'Matérias', icon: BookOpen, path: '/materias', badge: 12 },
-  { id: 'questoes', label: 'Questões', icon: Layers, path: '/questoes', badge: "+5" },
   {
+    id: 'materias',
+    label: 'Matérias',
+    icon: BookOpen,
+    path: '/cursos/1/materias', // <-- igual à página de matérias
+  },
+  { id: 'questoes', label: 'Questões', icon: Layers, path: '/questoes', badge: "+5" },
+ /* {
     id: 'flashcards',
     label: 'Flashcards',
     icon: FolderOpen,
@@ -57,7 +62,7 @@ const menuData: MenuItem[] = [
       { id: 'flashcardsMeus', label: 'Meus Flashcards', icon: FolderOpen, path: '/flashcards/meus', isSubItem: true },
       { id: 'flashcardsExplorar', label: 'Explorar', icon: FolderOpen, path: '/flashcards/explorar', isSubItem: true },
     ],
-  },
+  },*/
   { id: 'simuladosTitle', label: 'Simulados', isTitle: true },
   {
     id: 'simuladosRoot',

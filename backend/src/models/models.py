@@ -267,3 +267,29 @@ class ProgressoMateria(db.Model):
     subject = db.Column(db.String, nullable=False)
     percent = db.Column(db.Float, default=0)
 
+class Tarefa(db.Model):
+    __tablename__ = 'tarefas'
+
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(255), nullable=False)
+    descricao = db.Column(db.Text)
+    importante = db.Column(db.Boolean, default=False)
+    urgente = db.Column(db.Boolean, default=False)
+    prioridade = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(50), default='pendente')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    criado_em = db.Column(db.DateTime, default=db.func.now())
+    atualizado_em = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
+
+    def __repr__(self):
+        return f'<Tarefa {self.titulo}>'
+
+class PomodoroSession(db.Model):
+    __tablename__ = 'pomodoro_sessions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    inicio = db.Column(db.DateTime, nullable=False)
+    fim = db.Column(db.DateTime, nullable=False)
+    tipo = db.Column(db.String(20), nullable=False)  # foco, pausa, pausa longa
+    duracao = db.Column(db.Integer, nullable=False)
+

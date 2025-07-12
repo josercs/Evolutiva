@@ -41,7 +41,10 @@ CORS(
     resources={r"/*": {"origins": [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://192.168.0.109:5173"
+        "http://192.168.0.106:5173",
+        "http://192.168.0.109:5173",
+        "http://192.168.0.107:5173",
+        "*"
     ]}}
 )
 
@@ -52,7 +55,8 @@ from models.models import User
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    with Session(db.engine) as session:
+        return session.get(User, int(user_id))
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql://{os.getenv('DB_USERNAME', 'postgres')}:{os.getenv('DB_PASSWORD', '1234')}@{os.getenv('DB_HOST', 'localhost')}:{os.getenv('DB_PORT', '5432')}/{os.getenv('DB_NAME', 'sistema_estudos')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -417,6 +421,7 @@ def planos():
         db.session.commit()
         return jsonify({'ok': True})
 
+# --- Gemini: Cronograma de Estudos ---
 # Exemplo Flask
 @app.route('/api/gemini', methods=['POST'])
 def gemini():
@@ -680,5 +685,123 @@ def progresso_materias():
             for p in progresso
         ]
     })
+
+@app.route('/api/progresso/materias/<int:user_id>/<int:curso_id>', methods=['GET'])
+@login_required
+def get_progresso_materias(user_id, curso_id):
+    try:
+        progresso = ProgressoMateria.query.filter_by(
+            user_id=user_id,
+            curso_id=curso_id
+        ).all()
+        return jsonify({
+            "progresso": [
+                {
+                    "materia": p.subject,
+                    "percent": p.percent,
+                    "total_lessons": p.total_lessons,
+                    "completed_lessons": p.completed_lessons
+                }
+                for p in progresso
+            ]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Removidas as rotas de planos para evitar conflito:
+# @app.route('/api/planos/pendencias', methods=['GET'])
+# def get_pendencias():
+#     ...
+#
+# @app.route('/api/planos/me', methods=['GET'])
+# def get_plano_estudo_usuario():
+#     ...
+#
+# @app.route('/api/planos/atualizar-status-bloco', methods=['POST'])
+# def atualizar_status_bloco():
+#     ...
+#
+# @app.route('/api/planos', methods=['GET', 'POST'])
+# def planos():
+#     ...
+
+# --- Demais rotas do sistema (conteúdo, quiz, avatar, progresso, etc) ---
+
+@app.route('/api/planos/me', methods=['GET'])
+def get_plano_estudo_usuario():
+    email = request.args.get('email')
+    if not email:
+        return jsonify({"error": "Email não informado"}), 400
+
+    plano = PlanoEstudo.query.filter_by(email=email).order_by(PlanoEstudo.id.desc()).first()
+    if not plano:
+        return jsonify({"plano_estudo": None})
+
+    return jsonify({"plano_estudo": plano.dados})
+
+def carregar_plano_usuario(email):
+    plano = PlanoEstudo.query.filter_by(email=email).order_by(PlanoEstudo.id.desc()).first()
+    if plano:
+        try:
+            return plano.dados if isinstance(plano.dados, dict) else json.loads(plano.dados)
+        except Exception:
+            return None
+    return None
+
+def salvar_plano_usuario(email, dados):
+    plano = PlanoEstudo.query.filter_by(email=email).order_by(PlanoEstudo.id.desc()).first()
+    if plano:
+        plano.dados = dados
+    else:
+        plano = PlanoEstudo(email=email, dados=dados)
+        db.session.add(plano)
+    db.session.commit()
+
+@app.route('/api/planos/pendencias', methods=['GET'])
+def get_pendencias():
+    email = request.args.get("email")
+    if not email:
+        return jsonify({"error": "Email não informado", "pendencias": []}), 400
+    plano = carregar_plano_usuario(email)
+    if not plano or "days" not in plano:
+        return jsonify({"pendencias": []})
+    pendencias = []
+    for dia in plano.get("days", []):
+        for idx, bloco in enumerate(dia.get("blocks", [])):
+            if bloco.get("status") in ["pendente", "dificuldade"]:
+                pendencias.append({
+                    "subject": bloco.get("subject"),
+                    "topic": bloco.get("topic"),
+                    "date": dia.get("date"),
+                    "start_time": bloco.get("start_time"),
+                    "end_time": bloco.get("end_time"),
+                    "activity_type": bloco.get("activity_type"),
+                    "status": bloco.get("status"),
+                    "idx": idx
+                })
+    return jsonify({"pendencias": pendencias})
+
+@app.route('/api/planos/atualizar-status-bloco', methods=['POST'])
+def atualizar_status_bloco():
+    data = request.get_json()
+    email = data.get("email")
+    date = data.get("date")
+    block_index = data.get("blockIndex")
+    status = data.get("status")
+    if not all([email, date, isinstance(block_index, int), status]):
+        return jsonify({"error": "Dados incompletos"}), 400
+    plano = carregar_plano_usuario(email)
+    if not plano or "days" not in plano:
+        return jsonify({"error": "Plano não encontrado"}), 404
+    dia = next((d for d in plano["days"] if d["date"] == date), None)
+    if not dia:
+        return jsonify({"error": "Dia não encontrado no plano"}), 404
+    blocks = dia.get("blocks", [])
+    if block_index < 0 or block_index >= len(blocks):
+        return jsonify({"error": "Índice do bloco inválido"}), 400
+    blocks[block_index]["status"] = status
+    salvar_plano_usuario(email, plano)
+    return jsonify({"ok": True})
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

@@ -4,14 +4,14 @@ import { ArrowRight } from "lucide-react";
 type CourseCardProps = {
   id: number;
   materia: string;
-  conteudo: string;
+  conteudo?: string;
   className?: string;
 };
 
 const CourseCard = ({ id, materia, className = '' }: CourseCardProps) => {
   return (
     <Link
-      to={`/cursos/${encodeURIComponent(materia)}`}
+      to={`/materias/${id}`}
       className={`
         group block rounded-2xl shadow-lg border border-blue-200 
         bg-gradient-to-br from-white via-blue-50 to-blue-100 overflow-hidden

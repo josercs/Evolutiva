@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import AuthForm from '../components/AuthForm';
+import AuthForm from '../components//autenticacao/AuthForm';
 
 const AuthPage = () => {
   const [backgroundIndex, setBackgroundIndex] = useState(0);

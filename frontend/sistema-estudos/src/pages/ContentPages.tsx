@@ -16,8 +16,7 @@ const ConteudosPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Troque 'localhost' pelo IP da sua máquina na rede local
-    fetch("http://192.168.0.109:5000/api/conteudos")
+    fetch("/api/conteudos")
       .then((res) => res.json())
       .then((data) => {
         setConteudos(data.conteudos || {});
@@ -36,7 +35,8 @@ const ConteudosPage = () => {
         Object.entries(conteudos).map(([materia, lista], idx) => (
           <div key={materia} className="mb-8">
             <div className="subject-title font-semibold text-indigo-700 text-lg mb-2">
-              {materia} <span className="ml-2 text-sm text-gray-500">({lista.length})</span>
+              {materia}{" "}
+              <span className="ml-2 text-sm text-gray-500">({lista.length})</span>
             </div>
             <ul className="cards-list">
               {lista.length === 0 ? (
@@ -45,8 +45,12 @@ const ConteudosPage = () => {
                 lista.map((c) => (
                   <li key={c.id} className="card mb-2">
                     <div className="card-header flex gap-2 items-center">
-                      <span className="font-bold">{c.subject} - {c.topic}</span>
-                      <span className="date text-xs text-gray-400">{c.created_at}</span>
+                      <span className="font-bold">
+                        {c.subject} - {c.topic}
+                      </span>
+                      <span className="date text-xs text-gray-400">
+                        {c.created_at}
+                      </span>
                     </div>
                   </li>
                 ))

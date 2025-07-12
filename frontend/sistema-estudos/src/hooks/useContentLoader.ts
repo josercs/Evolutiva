@@ -1,27 +1,22 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useAuth } from "./useAuth";
 
-// Define o tipo ConteudoHtml (pode ser movido para um arquivo de tipos separado posteriormente)
 type ConteudoHtml = {
-  id: number; // <-- Adicione esta linha!
-  titulo?: string;
-  html?: string;
-  concluido?: boolean;
-  tarefasPendentes: number;
-  tempoEstudo: string;
-  progresso: any;
-  subject: string;
-  topic: string;
+  id: number;
+  titulo: string;
   content_html: string;
   materia: string;
-  related_topics?: string[];
+  topic: string;
   difficulty?: "basic" | "intermediate" | "advanced";
   estimated_time?: number;
+  related_topics?: string[];
   subtopics?: any;
+  is_completed?: boolean;
 };
 
-const API_BASE_URL = "http://localhost:5000"; // Considerar mover para .env
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export const useContentLoader = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +24,35 @@ export const useContentLoader = () => {
   const [loading, setLoading] = useState(true);
   const [userNotes, setUserNotes] = useState("");
   const [questions, setQuestions] = useState<string[]>([]);
+  const { userId } = useAuth();
+
+  const markAsCompleted = async () => {
+    if (!id || !conteudo || !userId) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/conteudos/concluir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          user_id: userId,
+          content_id: conteudo.id
+        })
+      });
+
+      if (response.ok) {
+        setConteudo(prev => prev ? { ...prev, is_completed: true } : null);
+        toast.success("Conteúdo marcado como concluído!");
+        return true;
+      } else {
+        throw new Error("Falha ao marcar como concluído");
+      }
+    } catch (error) {
+      toast.error("Erro ao marcar conteúdo como concluído");
+      console.error(error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     const fetchContentAndData = async () => {
@@ -41,7 +65,9 @@ export const useContentLoader = () => {
       try {
         setLoading(true);
         // Busca o conteúdo principal
-        const response = await fetch(`http://192.168.0.109:5000/api/conteudo_html/${id}`);
+        const response = await fetch(`${API_BASE_URL}/api/conteudo_html/${id}`, {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error("Conteúdo não encontrado");
         const data = await response.json();
         setConteudo(data);
@@ -57,7 +83,7 @@ export const useContentLoader = () => {
             setQuestions(JSON.parse(savedQuestions));
           } catch (parseError) {
             console.error("Erro ao parsear perguntas salvas:", parseError);
-            localStorage.removeItem(`questions-${id}`); // Remove dados inválidos
+            localStorage.removeItem(`questions-${id}`);
             setQuestions([]);
           }
         } else {
@@ -67,19 +93,23 @@ export const useContentLoader = () => {
       } catch (error) {
         toast.error("Erro ao carregar o conteúdo ou dados locais.");
         console.error("Erro em useContentLoader:", error);
-        setConteudo(null); // Reseta o conteúdo em caso de erro
+        setConteudo(null);
       } finally {
         setLoading(false);
       }
     };
 
     fetchContentAndData();
+  }, [id]);
 
-    // Cleanup não é estritamente necessário aqui, pois a busca ocorre uma vez por ID
-    // Mas é bom ter em mente se a lógica mudar.
-
-  }, [id]); // Dependência apenas no ID
-
-  return { id, conteudo, loading, userNotes, setUserNotes, questions, setQuestions };
+  return { 
+    id, 
+    conteudo, 
+    loading, 
+    userNotes, 
+    setUserNotes, 
+    questions, 
+    setQuestions,
+    markAsCompleted
+  };
 };
-

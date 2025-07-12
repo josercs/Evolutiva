@@ -3,14 +3,14 @@ import {
   Menu, X, User, BarChart2, Bookmark, Award, Settings, LogOut, ChevronDown, Home,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { useUser } from "../contexts/UserContext";
-import { useUserAvatar } from "../hooks/useUserAvatar";
+import { useUser } from "../../contexts/UserContext";
+import { useUserAvatar } from "../../hooks/useUserAvatar";
 
 // --- Funções utilitárias e constantes ---
 const API_BASE_URL = "http://localhost:5000";
 
 // --- Sistema de notificações ---
-import { useNotification } from "./NotificationProvider";
+import { useNotification } from "../notificacoes/NotificationProvider";
 
 // --- Definições de tipos ---
 interface NavLinkItemProps {

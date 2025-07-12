@@ -19,19 +19,19 @@ import { useMindMap } from '../hooks/useMindMap';
 import { useAuth } from "../hooks/useAuth"; // ajuste o caminho conforme sua estrutura
 
 // Importa componentes padrão da aplicação
-import { ContentDisplay } from '../components/ContentDisplay';
-import { StudyTabs } from '../components/StudyTabs';
-import { PomodoroTimer } from '../components/PomodoroTimer';
-import { FloatingActionsBar } from '../components/FloatingActionsBar';
-import { UserProgress } from '../components/UserProgress';
-import { StudyAids } from '../components/StudyAids';
+import { ContentDisplay } from '../components/conteudo/ContentDisplay.tsx';
+import { StudyTabs } from '../components/conteudo/StudyTabs.tsx';
+import { PomodoroTimer } from '../components/pomodoro/PomodoroTimer.tsx';
+import { FloatingActionsBar } from '../components/navegacao/FloatingActionsBar';
+import { UserProgress } from '../components/conteudo/UserProgress.tsx';
+import { StudyAids } from '../components/conteudo/StudyAids.tsx';
 
 // Importa componentes modais de forma assíncrona (lazy loading)
 const QuizModalWrapper = lazy(() =>
-    import('../components/QuizModalWrapper').then(module => ({ default: module.QuizModalWrapper }))
+    import('../components/quiz/QuizModalWrapper.tsx').then(module => ({ default: module.QuizModalWrapper }))
 );
 const MindMapViewer = lazy(() =>
-    import('../components/MindMapViewer').then(module => ({ default: module.MindMapViewer }))
+    import('../components/mapas_mentais/MindMapViewer.tsx').then(module => ({ default: module.MindMapViewer }))
 );
 
 // Lista de dicas de estudo exibidas para o usuário
@@ -435,8 +435,7 @@ const PaginaConteudoOtimizada: React.FC = () => {
                         {/* Fim dos recursos adicionais */}
 
                         {/* Botão para marcar conteúdo como concluído */}
-                        {conteudo && conteudo.id && (
-                          <button
+                        <button
                             onClick={async () => {
                               const userId = localStorage.getItem("userId"); // Certifique-se que está salvo corretamente após login/cadastro
 
@@ -456,10 +455,15 @@ const PaginaConteudoOtimizada: React.FC = () => {
                               });
                               toast.success("Conteúdo marcado como concluído!");
                             }}
-                          >
-                            Marcar como concluído
-                          </button>
-                        )}
+                            className={`mt-4 px-4 py-2 rounded-lg transition-colors ${
+                                conteudo.is_completed 
+                                    ? 'bg-green-500 text-white' 
+                                    : 'bg-green-500 hover:bg-green-600 text-white'
+                            }`}
+                            disabled={conteudo.is_completed}
+                        >
+                            {conteudo.is_completed ? '✓ Concluído' : 'Marcar como concluído'}
+                        </button>
                     </div>
                 </main>
 

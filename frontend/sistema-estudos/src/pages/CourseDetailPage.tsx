@@ -14,44 +14,35 @@ const icons = [
 ];
 
 const CourseDetailPage: React.FC = () => {
-  // Obtém o parâmetro 'materia' da URL (ex: /cursos/Matematica)
-  const { materia } = useParams<{ materia: string }>();
+  // Recebe o parâmetro 'materiaId' da URL (ex: /cursos/123)
+  const { materiaId } = useParams<{ materiaId: string }>();
 
-  // State para armazenar os conteúdos retornados da API
   const [conteudos, setConteudos] = useState<Conteudo[]>([]);
-  // State para controlar o carregamento (loading)
   const [loading, setLoading] = useState(true);
-  // State para o campo de busca
   const [search, setSearch] = useState('');
 
-  // useEffect para buscar os conteúdos da matéria ao carregar a página ou quando 'materia' mudar
+  // Busca os conteúdos da matéria ao carregar a página ou quando 'materiaId' mudar
   useEffect(() => {
-    if (!materia) return;
-    // Faz uma requisição para a API buscando os conteúdos da matéria
-    fetch(`http://192.168.0.109:5000/api/conteudo/${encodeURIComponent(materia)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        // Atualiza o state com os conteúdos recebidos ou array vazio
+    if (!materiaId) return; // Só faz fetch se materiaId existir
+    setLoading(true);
+    fetch(`/api/materias/${materiaId}/conteudos`)
+      .then(res => res.json())
+      .then(data => {
         setConteudos(data.conteudos || []);
-        // Marca o carregamento como concluído
         setLoading(false);
       });
-  }, [materia]);
+  }, [materiaId]);
 
-  // Filtro de busca
   const filtered = conteudos.filter((c) =>
     c.topic.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Renderização do componente
   return (
     <div className="max-w-5xl mx-auto px-2 sm:px-4 py-8">
-      {/* Título da página, mostrando o nome da matéria */}
       <h1 className="text-2xl md:text-3xl font-extrabold text-blue-800 mb-6 text-center tracking-tight drop-shadow-sm">
-        Conteúdos de <span className="capitalize">{materia}</span>
+        Conteúdos de <span className="capitalize">{materiaId}</span>
       </h1>
 
-      {/* Campo de busca e contador */}
       <div className="flex flex-col items-center mb-6 gap-2">
         <input
           type="text"
@@ -65,23 +56,19 @@ const CourseDetailPage: React.FC = () => {
         </span>
       </div>
 
-      {/* Se estiver carregando, mostra o spinner */}
       {loading ? (
         <div className="flex justify-center items-center h-24">
           <div className="animate-spin rounded-full h-8 w-8 border-t-4 border-b-4 border-blue-400"></div>
         </div>
       ) : filtered.length === 0 ? (
-        // Se não houver conteúdos, mostra mensagem amigável
         <div className="text-center py-8">
           <span className="text-4xl block mb-2">🔎</span>
           <h3 className="text-base font-medium text-gray-500">Nenhum conteúdo encontrado.</h3>
         </div>
       ) : (
-        // Lista os conteúdos encontrados
         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((c, idx) => (
             <li key={c.id}>
-              {/* Link para a página de detalhes do conteúdo */}
               <Link
                 to={`/conteudo/${c.id}`}
                 className="

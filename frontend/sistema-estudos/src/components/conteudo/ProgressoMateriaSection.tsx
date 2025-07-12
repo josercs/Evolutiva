@@ -1,14 +1,15 @@
 import React from "react";
-import { Progress } from "./ui/progress";
-import { usePlano } from "../contexts/usePlanoContext";
+import { Progress } from "../ui/progress";
+import { usePlano } from "../../contexts/usePlanoContext";
 
 const ProgressoMateriaSection: React.FC = () => {
   const { plano, loading, erro } = usePlano();
 
+  // Garante que percent seja sempre inteiro e nunca NaN
   const materiasComProgresso = plano?.coverage
     ? Object.entries(plano.coverage).map(([materia, percent]) => ({
         materia,
-        percent,
+        percent: Number.isFinite(percent) ? Math.round(Number(percent)) : 0,
       }))
     : [];
 

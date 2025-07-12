@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import CourseCard from '../components/CourseCard';
+import { useParams } from 'react-router-dom';
+import CourseCard from '../components/cursos/CourseCard';
 
 // Interface para o objeto de matéria do IFRS
 type Course = {
   id: number;
-  materia: string;
-  conteudo: string;
+  nome: string;
 };
 
 // Componente principal da página de matérias do IFRS
 const CoursesIFRSPage = () => {
+  const { courseId } = useParams<{ courseId: string }>();
   // Estado para armazenar as matérias carregadas da API
   const [courses, setCourses] = useState<Course[]>([]);
   // Estado para controlar o carregamento (loading)
@@ -19,13 +20,13 @@ const CoursesIFRSPage = () => {
 
   // Efeito que roda ao montar o componente para buscar as matérias do IFRS na API
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchMaterias = async () => {
       try {
-        // Faz a requisição para a API buscando apenas matérias do IFRS (curso_id=1)
-        const res = await fetch('http://192.168.0.109:5000/api/courses?curso_id=1');
+        // Faz a requisição para a API buscando as matérias do IFRS pelo courseId
+        const res = await fetch(`/api/materias?course_id=${courseId}`);
         const data = await res.json();
         // Atualiza o estado com as matérias recebidas
-        setCourses(data.courses || []);
+        setCourses(data.materias || []);
       } catch (error) {
         // Em caso de erro, exibe no console
         console.error('Erro ao carregar matérias do IFRS:', error);
@@ -34,14 +35,14 @@ const CoursesIFRSPage = () => {
         setIsLoading(false);
       }
     };
-    fetchCourses();
-  }, []);
+    fetchMaterias();
+  }, [courseId]);
 
   // Filtra as matérias conforme o termo de busca digitado
   const filteredCourses = courses.filter(
     (course) =>
-      course.materia &&
-      course.materia.toLowerCase().includes((searchTerm || '').toLowerCase())
+      course.nome &&
+      course.nome.toLowerCase().includes((searchTerm || '').toLowerCase())
   );
 
   // Renderização do componente
@@ -75,9 +76,7 @@ const CoursesIFRSPage = () => {
               {/* Card da matéria, clicável para navegar para o conteúdo */}
               <CourseCard
                 id={course.id}
-                materia={course.materia}
-                conteudo={course.conteudo}
-              />
+                materia={course.nome} conteudo={''}              />
             </li>
           ))}
         </ul>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { usePlano } from "../../contexts/PlanoContext";
 
 const steps = ["Dados Pessoais", "Preferências", "Disponibilidade", "Revisão"];
 
@@ -19,7 +20,7 @@ type OnboardingForm = {
   dificuldade_preferencia: string;
 };
 
-export default function OnboardingWizard() {
+const OnboardingWizard: React.FC = () => {
   const methods = useForm<OnboardingForm>({
     defaultValues: {
       idade: "",
@@ -34,6 +35,8 @@ export default function OnboardingWizard() {
       dificuldade_preferencia: "",
     }
   });
+
+  const { atualizarPlano } = usePlano();
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -81,6 +84,9 @@ export default function OnboardingWizard() {
 
       if (!planoRes.ok) throw new Error("Erro ao gerar plano de estudo.");
 
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      await atualizarPlano(user.email); // <-- Atualiza o contexto global
+
       localStorage.setItem("userId", data.id);
       localStorage.setItem("cursoId", data.curso_id);
 
@@ -92,12 +98,40 @@ export default function OnboardingWizard() {
     }
   };
 
+  const handleSubmit = async (data: any) => {
+    const payload = {
+      idade: data.idade,
+      escolaridade: data.escolaridade,
+      objetivo: data.objetivo,
+      dias_disponiveis: Array.isArray(data.dias_disponiveis)
+        ? data.dias_disponiveis
+        : [data.dias_disponiveis].filter(Boolean),
+      tempo_diario: data.tempo_diario,
+      estilo_aprendizagem: data.estilo_aprendizagem,
+      ritmo: data.ritmo,
+      curso_id: data.curso_id,
+      areas_interesse: data.areas_interesse,
+      dificuldade_preferencia: data.dificuldade_preferencia,
+      horario_inicio: data.horario_inicio,
+      focus_areas: data.areas_interesse
+        ? data.areas_interesse.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [],
+    };
+
+    await fetch("/api/plano-estudo/gerar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      credentials: "include",
+    });
+  };
+
   const renderStep = () => {
     switch (step) {
       case 0:
         return (
           <div className="space-y-4">
-            <input {...methods.register("idade")} placeholder="Idade" className="input w-full" />
+            <input {...methods.register("idade")} placeholder="Idade" className="input w-full" type="number" />
             <input {...methods.register("escolaridade")} placeholder="Escolaridade" className="input w-full" />
             <textarea {...methods.register("objetivo")} placeholder="Seu objetivo" className="input w-full min-h-[60px]" />
             <select {...methods.register("curso_id", { required: true })} className="input w-full">
@@ -139,7 +173,7 @@ export default function OnboardingWizard() {
             <div>
               <label className="block mb-2 font-semibold">Dias disponíveis:</label>
               <div className="flex flex-wrap gap-3">
-                {["Segunda", "Terça", "Quarta", "Quinta", "Sexta"].map((dia) => (
+                {["Segunda", "Terça", "Quarta", "Quinta", "Sexta","Sabado"].map((dia) => (
                   <label key={dia} className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -214,3 +248,5 @@ export default function OnboardingWizard() {
     </FormProvider>
   );
 }
+
+export default OnboardingWizard;
