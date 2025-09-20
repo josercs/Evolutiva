@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
-from src.db import db  # Ajuste para importar o objeto db do SQLAlchemy
-from src.models.models import Tarefa  # Importe seu modelo de tarefa corretamente
+from models.models import db  # Ajuste para importar o objeto db do SQLAlchemy
+from models.models import Tarefa  # Importe seu modelo de tarefa corretamente
 
 tarefas_bp = Blueprint('tarefas', __name__, url_prefix='/api/tarefas')
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback, memo } from "react";
 import {
   Menu, X, User, BarChart2, Bookmark, Award, Settings, LogOut, ChevronDown, Home,
+  CalendarDays, CheckCheck
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useUser } from "../../contexts/UserContext";
@@ -18,7 +19,7 @@ interface NavLinkItemProps {
   label: string;
   icon: React.ReactNode;
   badge?: string;
-  isActive: boolean;
+  isActive?: boolean;
   onClick: () => void;
   description: string;
 }
@@ -49,12 +50,11 @@ interface User {
 const Logo = memo(() => (
   <Link
     to="/"
-    aria-label="Ir para a página inicial da Evolutiva"
-    className="flex items-center group focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-blue-800 focus:ring-yellow-400 rounded-lg p-1 -ml-1"
+    aria-label="Ir para a página inicial"
+  className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-900 focus-visible:ring-white/70 rounded-lg"
   >
     <span
-      className="flex items-center justify-center rounded-full shadow-md transition-transform duration-300 ease-out group-hover:scale-110 group-hover:rotate-[-6deg] bg-gradient-to-br from-cyan-400 to-blue-500 mr-2"
-      style={{ width: "36px", height: "36px" }}
+  className="flex items-center justify-center w-9 h-9 rounded-full shadow-md transition-transform duration-300 ease-out group-hover:scale-110 group-hover:rotate-[-6deg] bg-gradient-to-br from-cyan-400 to-blue-500 mr-2"
     >
       <svg
         viewBox="0 0 24 24"
@@ -67,8 +67,7 @@ const Logo = memo(() => (
       </svg>
     </span>
     <span
-      className="text-2xl font-bold tracking-tight text-white group-hover:text-cyan-300 transition-colors duration-300"
-      style={{ fontFamily: "'Poppins', sans-serif" }}
+  className="text-2xl font-extrabold tracking-tight text-white group-hover:text-white/95 transition-colors duration-300 font-brand"
     >
       Evolutiva
     </span>
@@ -81,24 +80,21 @@ const NavLinkItem = memo(
     <Link
       to={to}
       onClick={onClick}
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out
-      ${
-        isActive
-          ? "bg-white text-blue-700 shadow-sm"
-          : "text-blue-100 hover:bg-blue-700 hover:text-white focus:bg-blue-700 focus:text-white"
-      }
-      focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-1 focus:ring-offset-blue-800`}
-      aria-label={description || label}
       aria-current={isActive ? "page" : undefined}
-      title={description || label}
+      className={[
+          "group relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm md:text-base font-medium",
+          "text-white/90 hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+          isActive ? "bg-white/18 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.35)]" : "",
+        ].join(" ")}
+      title={description}
     >
-      <span className={`${isActive ? "text-blue-600" : "text-blue-300 group-hover:text-white"}`}>
+      <span className={`${isActive ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-white"}`}>
         {icon}
       </span>
       <span className="hidden sm:inline-block">{label}</span>
       <span className="sm:hidden">{label}</span>
       {badge && (
-        <span className="ml-auto bg-yellow-400 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full">
+        <span className="ml-auto bg-amber-400 text-blue-900 text-xs font-bold px-2 py-0.5 rounded-full">
           {badge}
         </span>
       )}
@@ -112,11 +108,11 @@ const UserAvatarDisplay = ({ avatarSrc }: { avatarSrc: string }) => {
     <img
       src={avatarSrc}
       alt="Avatar do usuário"
-      className="w-9 h-9 rounded-full border-2 border-blue-300 group-hover:border-white object-cover transition-colors duration-200"
+      className="w-9 h-9 rounded-full border-2 border-white/30 group-hover:border-white object-cover transition-colors duration-200"
       loading="lazy"
     />
   ) : (
-    <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center border-2 border-blue-300 group-hover:border-white transition-colors duration-200">
+    <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-slate-300/70 dark:border-white/20 group-hover:border-slate-400 dark:group-hover:border-white transition-colors duration-200">
       <User className="h-5 w-5 text-white" />
     </div>
   );
@@ -164,7 +160,7 @@ const UserMenu = ({ onAvatarChange, isUploadingAvatar }: UserMenuProps) => {
     <div className="relative ml-3" ref={menuRef}>
       <button
         onClick={() => setIsDropdownOpen((prev) => !prev)}
-        className="flex items-center text-sm rounded-full group focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-blue-800 focus:ring-yellow-400 transition-transform duration-200 ease-out hover:scale-105"
+        className="flex items-center rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-sky-800 focus:ring-sky-400 transition-transform hover:scale-105"
         aria-haspopup="true"
         aria-expanded={isDropdownOpen}
         aria-label="Abrir menu do usuário"
@@ -273,7 +269,7 @@ const MobileMenu = ({
           <span className="font-semibold text-white">Menu</span>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1 rounded-md text-blue-200 hover:bg-blue-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            className="p-1 rounded-md text-blue-200 hover:bg-blue-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
             aria-label="Fechar menu"
           >
             <X className="h-6 w-6" />
@@ -325,7 +321,7 @@ const MobileMenu = ({
                 onLogout();
                 setIsOpen(false);
               }}
-              className="flex items-center gap-3 w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-300 hover:bg-red-900/50 hover:text-red-100 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-1 focus:ring-offset-blue-800 transition-colors duration-200 ease-out"
+              className="flex items-center gap-3 w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-300 hover:bg-red-900/50 hover:text-red-100 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-1 focus:ring-offset-blue-800 transition-colors duration-200 ease-out"
             >
               <LogOut className="h-5 w-5" />
               Sair
@@ -402,6 +398,20 @@ const NavbarModernized = () => {
       description: "Siga suas trilhas de aprendizado personalizadas",
       badge: undefined,
     },
+    {
+      to: "/agendas",
+      label: "Agendas",
+      icon: <CalendarDays className="h-5 w-5" />,
+      description: "Gerencie seus blocos de estudo por dia",
+      badge: undefined,
+    },
+    {
+      to: "/habitos",
+      label: "Hábitos",
+      icon: <CheckCheck className="h-5 w-5" />,
+      description: "Faça check-in diário de hábitos",
+      badge: undefined,
+    },
   ];
 
   // Para acessar o avatar do usuário de forma segura:
@@ -413,22 +423,24 @@ const NavbarModernized = () => {
 
   return (
     <nav
-      className="fixed top-0 left-0 w-full z-50 bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-md h-16 border-b border-blue-500/50"
-      style={{ fontFamily: "'Poppins', sans-serif" }}
+      className="
+      fixed top-0 left-0 w-full z-50 h-16
+      text-white border-b border-white/15 shadow-[0_6px_20px_-12px_rgba(0,0,0,.25)]
+      backdrop-blur-md navbar-gradient
+      "
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
+      <div className="max-w-[1200px] xl:max-w-[1280px] mx-auto h-full px-5 md:px-8">
         <div className="flex items-center justify-between h-full">
           <div className="flex-shrink-0">
             <Logo />
           </div>
-          <div className="hidden md:flex md:ml-6 md:items-center md:space-x-2 lg:space-x-4">
-            {navLinks.map((link) => (
+          <div className="hidden md:flex items-center space-x-2 lg:space-x-3">
+            {navLinks.map(link => (
               <NavLinkItem
                 key={link.to}
                 to={link.to}
                 label={link.label}
                 icon={link.icon}
-                badge={link.badge}
                 isActive={isActive(link.to)}
                 description={link.description}
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -442,27 +454,21 @@ const NavbarModernized = () => {
                 isUploadingAvatar={isUploadingAvatar}
               />
             </div>
-            <div className="md:hidden ml-3">
+      <div className="md:hidden ml-3">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-blue-200 hover:text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-yellow-400"
+        className="inline-flex items-center justify-center p-2 rounded-full text-white/90 hover:text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 aria-controls="mobile-menu"
                 aria-expanded={isMobileMenuOpen}
-                aria-label={
-                  isMobileMenuOpen ? "Fechar menu principal" : "Abrir menu principal"
-                }
+                aria-label={isMobileMenuOpen ? "Fechar menu principal" : "Abrir menu principal"}
               >
-                {isMobileMenuOpen ? (
-                  <X className="block h-6 w-6" aria-hidden="true" />
-                ) : (
-                  <Menu className="block h-6 w-6" aria-hidden="true" />
-                )}
+                {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
               </button>
             </div>
           </div>
         </div>
       </div>
-      <MobileMenu
+  <MobileMenu
         navLinks={navLinks.map(link => ({
           ...link,
           isActive: isActive(link.to),

@@ -1,7 +1,10 @@
 from flask import Blueprint, jsonify, request
-from src.db import get_db_connection
+from db import get_db_connection
 from models.models import db, HorariosEscolares, CursoMateria, Module, Lesson, CompletedLesson, CompletedContent, User, Curso
 from sqlalchemy import text
+from flask_login import login_required, current_user
+from datetime import datetime
+from models.models import PomodoroSession
 
 progress_bp = Blueprint('progress', __name__, url_prefix='/api/progress')
 
@@ -113,17 +116,36 @@ def get_user_curso(user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-content_bp = Blueprint('content', __name__, url_prefix='/api/conteudos')
+@progress_bp.route('/pomodoro', methods=['POST'])
+@login_required
+def log_pomodoro_session():
+    try:
+        data = request.get_json(force=True) or {}
+        inicio = data.get('inicio')
+        fim = data.get('fim')
+        tipo = data.get('tipo') or 'work'
+        duracao = int(data.get('duracao') or (300 if tipo == 'break' else 1500))
 
-@content_bp.route('/concluir', methods=['POST'])
-def concluir_conteudo():
-    data = request.json
-    user_id = data.get('user_id')
-    content_id = data.get('content_id')
-    if not user_id or not content_id:
-        return jsonify({"success": False, "message": "Dados incompletos"}), 400
-    if not CompletedContent.query.filter_by(user_id=user_id, content_id=content_id).first():
-        cc = CompletedContent(user_id=user_id, content_id=content_id)
-        db.session.add(cc)
+        # Parse ISO strings; fallback to now
+        def parse_dt(val):
+            try:
+                return datetime.fromisoformat(val.replace('Z', '+00:00')) if isinstance(val, str) else datetime.utcnow()
+            except Exception:
+                return datetime.utcnow()
+
+        inicio_dt = parse_dt(inicio)
+        fim_dt = parse_dt(fim)
+
+        sess = PomodoroSession(
+            user_id=current_user.id,
+            inicio=inicio_dt,
+            fim=fim_dt,
+            tipo=str(tipo)[:20],
+            duracao=duracao
+        )
+        db.session.add(sess)
         db.session.commit()
-    return jsonify({"success": True})
+        return jsonify({"success": True, "id": sess.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500

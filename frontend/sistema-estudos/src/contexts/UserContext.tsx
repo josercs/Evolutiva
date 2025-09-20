@@ -6,7 +6,7 @@ export type User = {
   name: string;
   email: string;
   onboardingDone: boolean;
-  // Remova avatarUrl daqui!
+  avatarUrl?: string;
   level?: number;
   streak?: number;
   badges?: string[];
@@ -34,14 +34,48 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    let parsedUser = null;
+    let parsedUser: User | null = null;
     try {
-      parsedUser = storedUser && storedUser !== "undefined" ? JSON.parse(storedUser) : null;
+      parsedUser = storedUser && storedUser !== "undefined" ? JSON.parse(storedUser) as User : null;
     } catch {
       parsedUser = null;
     }
     setUser(parsedUser);
+    // garante que userId legado esteja presente
+    try {
+      const uid = parsedUser?.id ? String(parsedUser.id) : null;
+      if (uid) localStorage.setItem("userId", uid);
+    } catch {}
     setIsLoading(false);
+  }, []);
+
+  // Hydrate from server session cookie when available
+  useEffect(() => {
+    const hydrateFromSession = async () => {
+      try {
+        let res = await fetch("/api/user/me", { credentials: "include", headers: { "X-Requested-With": "XMLHttpRequest" } });
+        if (!res.ok) {
+          res = await fetch("/api/users/me", { credentials: "include", headers: { "X-Requested-With": "XMLHttpRequest" } });
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        const mapped: User = {
+          id: String(data.id),
+          name: data.name || data.nome || "",
+          email: data.email,
+          onboardingDone: (data.onboardingDone ?? data.has_onboarding) ?? false,
+          avatarUrl: data.avatar_url || data.avatar || "",
+          level: data.level,
+          streak: data.streak,
+          badges: data.badges,
+          xp: data.xp,
+        };
+        setUser(mapped);
+        localStorage.setItem("user", JSON.stringify(mapped));
+        try { localStorage.setItem("userId", String(mapped.id)); } catch {}
+      } catch {}
+    };
+    hydrateFromSession();
   }, []);
 
   // BUSCA DO AVATAR - agora só depende do email
@@ -55,26 +89,77 @@ export function UserProvider({ children }: { children: ReactNode }) {
       .then(data => setAvatarUrl(data.avatarUrl || ""))
       .catch(() => setAvatarUrl(""));
   }, [user?.email]);
-
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/login", {
+      // Try new endpoint first, fallback to legacy
+      let response = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
       if (!response.ok) {
-        throw new Error("Login failed");
+        // fallback to legacy alias
+        response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          credentials: "include",
+          body: JSON.stringify({ email, password }),
+        });
       }
 
-      const userData: User = await response.json();
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
+      if (!response.ok) {
+        const j = await response.json().catch(() => ({} as any));
+        throw new Error((j as any).error || (j as any).message || "Login failed");
+      }
+
+      // Normalize login payload
+      const raw = await response.json();
+      const normalized: User = {
+        id: String(raw.id),
+        name: raw.name || raw.nome || "",
+        email: raw.email,
+        onboardingDone: (raw.onboardingDone ?? raw.has_onboarding) ?? false,
+        avatarUrl: raw.avatar_url || raw.avatar || "",
+        level: raw.level,
+        streak: raw.streak,
+        badges: raw.badges,
+        xp: raw.xp,
+      };
+      setUser(normalized);
+      localStorage.setItem("user", JSON.stringify(normalized));
+      try { localStorage.setItem("userId", String(normalized.id)); } catch {}
+
+      // Revalida sessão via /me para garantir cookie e payload canônico
+      try {
+        let res = await fetch("/api/user/me", { credentials: "include", headers: { "X-Requested-With": "XMLHttpRequest" } });
+        if (!res.ok) {
+          res = await fetch("/api/users/me", { credentials: "include", headers: { "X-Requested-With": "XMLHttpRequest" } });
+        }
+        if (res.ok) {
+          const data = await res.json();
+          const mapped: User = {
+            id: String(data.id),
+            name: data.name || data.nome || "",
+            email: data.email,
+            onboardingDone: (data.onboardingDone ?? data.has_onboarding) ?? false,
+            avatarUrl: data.avatar_url || data.avatar || "",
+            level: data.level,
+            streak: data.streak,
+            badges: data.badges,
+            xp: data.xp,
+          };
+          setUser(mapped);
+          localStorage.setItem("user", JSON.stringify(mapped));
+          try { localStorage.setItem("userId", String(mapped.id)); } catch {}
+        }
+      } catch {}
     } catch (error) {
       setUser(null);
       localStorage.removeItem("user");
+      localStorage.removeItem("userId");
       throw error;
     } finally {
       setIsLoading(false);
@@ -82,12 +167,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (name: string, email: string, password: string) => {
-    // Implemente a lógica de registro
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        credentials: "include",
+        body: JSON.stringify({ name, email, password }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.message || "Registro falhou");
+      }
+      // Faz login automático após cadastro
+      await login(email, password);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
+    // Tenta encerrar a sessão no backend também
+    fetch("/api/auth/logout", { method: "POST", credentials: "include", headers: { "X-Requested-With": "XMLHttpRequest" } }).catch(() => {});
     setUser(null);
     localStorage.removeItem("user");
+    localStorage.removeItem("userId");
     window.location.href = "/";
   };
 

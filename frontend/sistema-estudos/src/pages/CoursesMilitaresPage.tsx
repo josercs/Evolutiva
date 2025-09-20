@@ -39,7 +39,8 @@ const CoursesMilitaresPage = () => {
   );
 
   return (
-    <div className="max-w-5xl mx-auto px-2 sm:px-6 py-8 space-y-8">
+  <div className="relative ml-sidebar pt-navbar max-w-6xl mx-auto px-3 sm:px-4 py-8 space-y-6">
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(900px_500px_at_10%_-10%,rgba(14,165,233,0.08),transparent),radial-gradient(700px_420px_at_95%_-5%,rgba(37,99,235,0.06),transparent)]" />
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight drop-shadow-sm">
           <span className="text-[#4A90E2]">Matérias</span> Colégios Militares

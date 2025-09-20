@@ -5,10 +5,9 @@ const AuthPage = () => {
   const [backgroundIndex, setBackgroundIndex] = useState(0);
 
   const backgrounds = [
-    'bg-gradient-to-r from-blue-500 to-indigo-600',
-    'bg-gradient-to-r from-purple-500 to-pink-500',
-    'bg-gradient-to-r from-green-400 to-blue-500',
-    'bg-gradient-to-r from-yellow-400 to-orange-500'
+    'bg-gradient-to-r from-sky-600 to-blue-500',
+    'bg-gradient-to-br from-sky-500 to-cyan-500',
+    'bg-gradient-to-tr from-blue-600 to-cyan-500'
   ];
 
   useEffect(() => {
@@ -20,11 +19,10 @@ const AuthPage = () => {
 
   return (
     <main
-      className={`min-h-screen flex justify-center items-center py-8 px-2 transition-colors duration-1000 ${backgrounds[backgroundIndex]}`}
+  className={`ml-sidebar pt-navbar min-h-screen overflow-y-auto flex justify-center items-center py-8 px-2 transition-colors duration-1000 ${backgrounds[backgroundIndex]}`}
       aria-label="Página de autenticação"
-      style={{ overflowY: 'auto' }}
     >
-      <div className="w-full max-w-lg bg-white bg-opacity-30 rounded-2xl shadow-3xl p-4 md:p-8 backdrop-blur-xl flex flex-col items-center">
+      <div className="w-full max-w-lg bg-white/30 rounded-2xl shadow-premium p-4 md:p-8 backdrop-blur-xl flex flex-col items-center border border-white/20">
         <AuthForm
           onLogin={async (user) => {
             localStorage.setItem("userId", String(user.id));

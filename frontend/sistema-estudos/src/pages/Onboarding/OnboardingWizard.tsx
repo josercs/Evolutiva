@@ -205,6 +205,7 @@ const OnboardingWizard: React.FC = () => {
   };
 
   return (
+  <div className="relative ml-sidebar pt-20 px-4 sm:px-6 lg:px-8 py-8">
     <FormProvider {...methods}>
       <form
         onSubmit={methods.handleSubmit(onSubmit)}
@@ -212,12 +213,12 @@ const OnboardingWizard: React.FC = () => {
       >
         <div>
           <h2 className="text-xl md:text-2xl font-bold text-blue-700">{steps[step]}</h2>
-          <div className="w-full h-2 bg-gray-200 rounded-full mt-4">
-            <div
-              className="h-2 bg-blue-500 rounded-full transition-all"
-              style={{ width: `${((step + 1) / steps.length) * 100}%` }}
-            />
-          </div>
+          <progress
+            value={step + 1}
+            max={steps.length}
+            className="w-full h-2 mt-4 [&::-webkit-progress-bar]:bg-gray-200 [&::-webkit-progress-value]:bg-blue-500 [&::-moz-progress-bar]:bg-blue-500 rounded-full overflow-hidden"
+            aria-label="Progresso do onboarding"
+          />
         </div>
 
         {renderStep()}
@@ -246,6 +247,7 @@ const OnboardingWizard: React.FC = () => {
         </div>
       </form>
     </FormProvider>
+    </div>
   );
 }
 

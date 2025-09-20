@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from models.models import Curso, HorariosEscolares, CursoMateria, SubjectContent
-from src.db import db  # Use o db correto do seu projeto
+from models.models import db  # Use o db correto do seu projeto
 
 course_bp = Blueprint('course', __name__, url_prefix='/api')
 

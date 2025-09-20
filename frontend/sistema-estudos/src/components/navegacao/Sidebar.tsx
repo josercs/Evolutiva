@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
-  Home, Calendar, BookOpen, ListChecks, Layers, User, ChevronDown,
-  ChevronRight, FolderOpen, Target, MessageCircle, ClipboardList, Menu as MenuIcon, X as XIcon, Award,
+  Home, BookOpen, Layers, User, ChevronDown,
+  ChevronRight, MessageCircle, ClipboardList, Menu as MenuIcon, X as XIcon, Award,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useUser } from "../../contexts/UserContext";
-import { useOnboarding } from '../../contexts/OnboardingContext'; // Importa o hook de onboarding global
+// import { useUser } from "../../contexts/UserContext";
+// import { useOnboarding } from '../../contexts/OnboardingContext'; // Importa o hook de onboarding global
 // --- Tipos e Estrutura de Dados ---
 interface MenuItem {
   id: string;
@@ -25,7 +25,7 @@ const menuData: MenuItem[] = [
     id: 'home',
     label: 'Início',
     icon: Home,
-    path: '/',  
+    path: '/',
   },
   {
     id: 'painel',
@@ -53,16 +53,16 @@ const menuData: MenuItem[] = [
     path: '/cursos/1/materias', // <-- igual à página de matérias
   },
   { id: 'questoes', label: 'Questões', icon: Layers, path: '/questoes', badge: "+5" },
- /* {
-    id: 'flashcards',
-    label: 'Flashcards',
-    icon: FolderOpen,
-    defaultOpen: false,
-    children: [
-      { id: 'flashcardsMeus', label: 'Meus Flashcards', icon: FolderOpen, path: '/flashcards/meus', isSubItem: true },
-      { id: 'flashcardsExplorar', label: 'Explorar', icon: FolderOpen, path: '/flashcards/explorar', isSubItem: true },
-    ],
-  },*/
+  /* {
+     id: 'flashcards',
+     label: 'Flashcards',
+     icon: FolderOpen,
+     defaultOpen: false,
+     children: [
+       { id: 'flashcardsMeus', label: 'Meus Flashcards', icon: FolderOpen, path: '/flashcards/meus', isSubItem: true },
+       { id: 'flashcardsExplorar', label: 'Explorar', icon: FolderOpen, path: '/flashcards/explorar', isSubItem: true },
+     ],
+   },*/
   { id: 'simuladosTitle', label: 'Simulados', isTitle: true },
   {
     id: 'simuladosRoot',
@@ -107,62 +107,59 @@ interface SidebarNavigationItemProps {
   isActive: boolean;
   onClick?: () => void;
   className?: string;
+  collapsed?: boolean;
 }
+
+const activeClasses = "bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.15)]";
+const inactiveClasses = "text-white/80 hover:bg-white/10";
 
 const SidebarNavigationItem: React.FC<SidebarNavigationItemProps> = ({
   item,
   isActive,
   onClick,
   className = '',
+  collapsed,
 }) => {
-  const { label, icon: Icon, path, badge, isSubItem } = item;
-  const navigate = useNavigate();
-
-  const baseClasses = `flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200 w-full text-left`;
-  const activeClasses = "bg-white text-blue-700 shadow";
-  // SUGESTÃO: Hover com leve fundo, sombra e transição suave
-  const inactiveClasses = "text-white hover:bg-blue-700/80 hover:shadow-md hover:scale-[1.03] focus:bg-blue-700/90 focus:text-white"; 
-  const subItemPaddingClass = isSubItem ? "pl-8" : ""; // Padding maior para subitens
-
-  const effectiveIconSize = isSubItem ? "h-4 w-4" : "h-5 w-5";
-
+  const { icon: Icon, label, path, badge } = item;
+  const effectiveIconSize = "h-5 w-5";
   const content = (
     <>
       {Icon && <Icon className={effectiveIconSize} />}
-      <span>{label}</span>
+      <span className={collapsed ? "sr-only" : ""}>{label}</span>
       {badge && (
-        <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${
-          path === '/questoes' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white'
-        }`}>
+        <span
+          className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${
+            path === "/questoes" ? "bg-sky-600 text-white" : "bg-white/20 text-white"
+          }`}
+        >
           {badge}
         </span>
       )}
     </>
   );
 
-  const handleClick = () => {
-    if (onClick) onClick();
-    if (item.action) item.action(navigate);
-  };
-
-  if (path) {
-    return (
-      <Link
-        to={path}
-        className={`${baseClasses} ${subItemPaddingClass} ${isActive ? activeClasses : inactiveClasses} ${className} focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2`}
-        onClick={onClick}
-        aria-current={isActive ? "page" : undefined} // SUGESTÃO: acessibilidade
-      >
-        {content}
-      </Link>
-    );
+  function baseClasses(collapsed: boolean | undefined) {
+    return [
+      "flex items-center gap-3 px-2 py-2 rounded-lg font-medium text-sm transition-all duration-200 w-full",
+      collapsed ? "justify-center" : "",
+    ].join(" ");
   }
 
-  return (
+  return path ? (
+    <Link
+      to={path}
+      onClick={onClick}
+      className={`${baseClasses(collapsed)} ${isActive ? activeClasses : inactiveClasses} ${className} focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400`}
+      title={label}
+    >
+      {content}
+    </Link>
+  ) : (
     <button
       type="button"
-      onClick={handleClick}
-      className={`${baseClasses} ${subItemPaddingClass} ${isActive ? activeClasses : inactiveClasses} ${className} focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2`}
+      onClick={onClick}
+      className={`${baseClasses(collapsed)} ${isActive ? activeClasses : inactiveClasses} ${className} focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400`}
+      title={label}
     >
       {content}
     </button>
@@ -175,17 +172,13 @@ interface ExpandableMenuProps {
   currentPath: string;
   isOpen: boolean;
   onToggle: () => void;
-  onLinkClick?: () => void; // Para fechar menu mobile
-  depth?: number; // Para controlar o nível de aninhamento e estilo
+  onLinkClick?: () => void;
+  depth?: number;
+  collapsed?: boolean;
 }
 
 const ExpandableMenuItem: React.FC<ExpandableMenuProps> = ({
-  item,
-  currentPath,
-  isOpen,
-  onToggle,
-  onLinkClick,
-  depth = 0,
+  item, currentPath, isOpen, onToggle, onLinkClick, depth = 0, collapsed
 }) => {
   const Icon = item.icon;
   // Um menu expansível é considerado ativo se ele próprio estiver aberto E um de seus filhos for o path atual.
@@ -202,16 +195,17 @@ const ExpandableMenuItem: React.FC<ExpandableMenuProps> = ({
       <button
         type="button"
         onClick={onToggle}
-        aria-expanded={isOpen}
+        aria-expanded={isOpen ? true : false}
         aria-controls={`submenu-${item.id}`}
         className={`flex items-center justify-between gap-1 px-1 py-1 rounded-lg font-medium text-sm transition-all duration-200 w-full text-left
                     ${subItemPaddingClass}
-                    ${isActive ? "bg-white text-blue-700 shadow" : "text-white hover:bg-blue-700/80 hover:shadow-md"}
-                    focus:outline-none focus:ring-2 focus:ring-blue-300`}
+                    ${isActive ? "bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.15)]" : "text-white/80 hover:bg-white/10"}
+                    focus:outline-none focus:ring-2 focus:ring-sky-400`}
+        title={item.label}
       >
         <span className="flex items-center gap-3">
           {Icon && <Icon className={effectiveIconSize} />}
-          {item.label}
+          <span className={collapsed && depth === 0 ? "sr-only" : ""}>{item.label}</span>
         </span>
         {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
       </button>
@@ -224,6 +218,7 @@ const ExpandableMenuItem: React.FC<ExpandableMenuProps> = ({
               currentPath={currentPath}
               onLinkClick={onLinkClick}
               depth={depth + 1}
+              collapsed={collapsed}
             />
           ))}
         </div>
@@ -236,7 +231,7 @@ const ExpandableMenuItem: React.FC<ExpandableMenuProps> = ({
 // Usando um estado global simulado para openMenus (ou poderia ser Context/Zustand para apps maiores)
 // Para este exemplo, vamos passar o estado e o toggle para baixo.
 let openMenusState: Record<string, boolean> = {};
-let setOpenMenusState: React.Dispatch<React.SetStateAction<Record<string, boolean>>> = () => {};
+let setOpenMenusState: React.Dispatch<React.SetStateAction<Record<string, boolean>>> = () => { };
 
 
 interface RenderMenuItemProps {
@@ -244,15 +239,16 @@ interface RenderMenuItemProps {
   currentPath: string;
   onLinkClick?: () => void; // Para fechar menu mobile
   depth?: number;
+  collapsed?: boolean;
 }
 
-const RenderMenuItemComponent: React.FC<RenderMenuItemProps> = ({ item, currentPath, onLinkClick, depth = 0 }) => {
+const RenderMenuItemComponent: React.FC<RenderMenuItemProps> = ({ item, currentPath, onLinkClick, depth = 0, collapsed }) => {
   if (item.isTitle) {
     return (
       <div className="pt-4 first:pt-0">
-        <h3 className="text-xs font-semibold tracking-wider text-blue-300 uppercase px-3 mb-1 select-none">
-          {item.label}
-        </h3>
+        <h3 className={`text-xs font-semibold tracking-wider text-white/70 uppercase px-3 mb-1 select-none ${collapsed ? "sr-only" : ""}`}>
+           {item.label}
+         </h3>
       </div>
     );
   }
@@ -266,6 +262,7 @@ const RenderMenuItemComponent: React.FC<RenderMenuItemProps> = ({ item, currentP
         onToggle={() => setOpenMenusState(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
         onLinkClick={onLinkClick}
         depth={depth}
+        collapsed={collapsed}
       />
     );
   }
@@ -275,6 +272,7 @@ const RenderMenuItemComponent: React.FC<RenderMenuItemProps> = ({ item, currentP
       item={item}
       isActive={currentPath === item.path}
       onClick={onLinkClick} // Passa o onLinkClick para fechar mobile
+      collapsed={collapsed}
     />
   );
 };
@@ -284,7 +282,7 @@ const RenderMenuItemComponent: React.FC<RenderMenuItemProps> = ({ item, currentP
 const Sidebar = () => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, avatarUrl } = useUser();
+  // const { user, avatarUrl } = useUser();
   const initialOpenMenus = useMemo(() => {
     const state: Record<string, boolean> = {};
     const processItems = (items: MenuItem[], currentDepth = 0) => {
@@ -319,6 +317,22 @@ const Sidebar = () => {
     }
   }, [mobileOpen]);
 
+  // Evita scroll do conteúdo quando o menu móvel está aberto
+  useEffect(() => {
+    const original = document.body.style.overflow;
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+  document.body.setAttribute('data-sidebar-mobile', 'open');
+    } else {
+      document.body.style.overflow = original || '';
+  document.body.setAttribute('data-sidebar-mobile', 'closed');
+    }
+    return () => {
+      document.body.style.overflow = original || '';
+  document.body.setAttribute('data-sidebar-mobile', 'closed');
+    };
+  }, [mobileOpen]);
+
   function logout() {
     // Remove user token/session (example: localStorage)
     localStorage.removeItem('authToken');
@@ -326,6 +340,18 @@ const Sidebar = () => {
     // Redirect to login page
     window.location.href = '/login';
   }
+
+  // novo: lembrar estado colapsado
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem("sb_collapsed") === "true"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("sb_collapsed", String(collapsed)); } catch {}
+  }, [collapsed]);
+
+  // Constantes de largura
+  const W_EXPANDED = "w-[var(--sidebar-w)]";
+  const W_COLLAPSED = "w-[72px]"; // rail só-ícone
 
   return (
     <>
@@ -341,7 +367,7 @@ const Sidebar = () => {
       {/* Botão de Toggle Mobile (fora do <aside> para posicionamento) */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 text-blue-800 bg-white rounded-md shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="md:hidden fixed top-4 left-4 z-50 p-2 text-blue-800 bg-white rounded-md shadow-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
         aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
         aria-expanded={mobileOpen}
         aria-controls="sidebar-navigation"
@@ -349,40 +375,49 @@ const Sidebar = () => {
         {mobileOpen ? <XIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
       </button>
 
-      <aside
-        id="sidebar-navigation"
-        className={`
-          fixed z-40 top-0 left-0 h-full 
-          w-56 md:w-52 lg:w-48 xl:w-44 2xl:w-44
-          bg-gradient-to-b from-blue-800 to-blue-900 shadow-2xl
-          flex flex-col
-          transition-transform duration-300 ease-in-out
-          ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
-        `}
+    <aside
         aria-label="Menu de navegação principal"
-        style={{ fontFamily: "'Inter', 'Poppins', sans-serif" }}
+        className={[
+      "fixed inset-y-0 left-0 z-40 h-full",
+          collapsed ? W_COLLAPSED : W_EXPANDED,
+      // Fundo premium com gradiente vertical da marca
+      "bg-gradient-to-b from-[var(--brand-700)] to-[var(--brand-600)]/95",
+      "text-white/90 backdrop-blur-md border-r border-white/15 shadow-xl",
+          // animação e comportamento off-canvas no mobile
+          "transition-transform duration-200 will-change-transform",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          // em telas md+ sempre visível e posicionado
+          "md:translate-x-0",
+        ].join(" ")}
+        aria-hidden={!mobileOpen && window.innerWidth < 768 ? true : undefined}
       >
-        <div className="px-4 py-3 border-b border-blue-700/50">
-          {/* Logo com SVG */}
-          <Link to="/painel" className="flex items-center gap-2" onClick={handleLinkClick}>
+        {/* Header + toggle colapse */}
+        <div className="px-4 py-3 border-b border-white/15 flex items-center justify-between">
+          <Link to="/painel" className="flex items-center gap-2 min-w-0" onClick={handleLinkClick} title="Painel">
             <span
-              className="flex items-center justify-center rounded-full shadow-md bg-gradient-to-br from-cyan-400 to-blue-500 mr-2"
-              style={{ width: "36px", height: "36px" }}
+              className="flex items-center justify-center rounded-full shadow-md bg-gradient-to-br from-[var(--brand-500)] to-[var(--accent-500)] mr-2 shrink-0 w-9 h-9"
             >
-              <svg
-                viewBox="0 0 24 24"
-                fill="white"
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5"
-              >
+              <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
               </svg>
             </span>
-            <span className="text-white text-xl font-bold">Evolutiva</span>
+            <span className={`text-white/95 text-xl font-extrabold truncate ${collapsed ? "sr-only" : ""}`}>
+              Evolutiva
+            </span>
           </Link>
+
+          <button
+            onClick={() => setCollapsed(v => !v)}
+            className="ml-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/10 hover:bg-white/15 text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            title={collapsed ? "Expandir menu" : "Colapsar menu"}
+            aria-label={collapsed ? "Expandir menu" : "Colapsar menu"}
+          >
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4 -rotate-90" />}
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto sidebar-scrollable px-3 py-4 space-y-1.5">
+        {/* Lista de itens */}
+  <div className="flex-1 overflow-y-auto sidebar-scrollable px-3 py-4 space-y-1.5">
           <nav aria-label="Navegação principal nos módulos">
             {menuData.map(item => (
               <RenderMenuItemComponent
@@ -390,13 +425,14 @@ const Sidebar = () => {
                 item={item}
                 currentPath={location.pathname}
                 onLinkClick={handleLinkClick}
+                collapsed={collapsed}
               />
             ))}
           </nav>
         </div>
 
         {/* Seção do Usuário */}
-        <div className="px-3 py-3 border-t border-blue-700/50">
+        <div className="px-3 py-3 border-t border-white/15">
           <SidebarNavigationItem
             item={{ id: 'perfil', label: 'Meu Perfil', icon: User, path: '/perfil' }}
             isActive={location.pathname === '/perfil'}
@@ -407,9 +443,7 @@ const Sidebar = () => {
               id: 'sair',
               label: 'Sair',
               icon: Layers,
-              action: () => {
-                logout(); // <-- chama o logout global, que faz o mesmo que o Navbar
-              }
+              action: () => { logout(); }
             }}
             isActive={false}
             onClick={handleLinkClick}
@@ -419,6 +453,7 @@ const Sidebar = () => {
     </>
   );
 };
+
 
 export default Sidebar;
 

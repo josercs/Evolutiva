@@ -92,7 +92,7 @@ export const usePomodoro = () => {
 
     // Efeito para gerenciar a contagem regressiva do timer
     React.useEffect(() => {
-        let interval: NodeJS.Timeout;
+        let interval: ReturnType<typeof setInterval>;
 
         if (running) {
             interval = setInterval(() => {

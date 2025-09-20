@@ -32,4 +32,20 @@ __pycache__/
 *.venv
 env/
 venv/
+
+# Backend adicionais
+backend/src/dev.db
+backend/src/*.sqlite3
+backend/uploads/
+backend/backend_start.log
+backend/backend_start_err.log
+*.log
+*.coverage
+.pytest_cache/
+coverage/
+/.mypy_cache/
+
+# Artefatos locais gerados
+*.tsbuildinfo
+frontend/sistema-estudos/tsconfig.*.tsbuildinfo
 ENV/

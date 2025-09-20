@@ -34,7 +34,7 @@ export const usePomodoro = ({
   });
 
   useEffect(() => {
-    let timer: NodeJS.Timeout | undefined = undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined = undefined;
 
     if (pomodoro.running && pomodoro.time > 0) {
       timer = setTimeout(() => {

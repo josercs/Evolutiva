@@ -1,0 +1,28 @@
+/* src/styles/PaginaConteudoOtimizada.css */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { 
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;    /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;            /* Chrome, Safari, Opera */
+}
+
+/* XP float básica */
+.xp-float-anim {
+  animation: xp-pop 1.2s ease-out forwards;
+  background: rgba(79,70,229,.1);
+  color: #4F46E5;
+  padding: .5rem .75rem;
+  border-radius: .75rem;
+  font-weight: 700;
+}
+@keyframes xp-pop {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 1; transform: translateY(-6px); }
+  100% { transform: translateY(-24px); opacity: 0; }
+}
+
+/* opcional: ajustes do conteúdo HTML renderizado */
+.content-area h1, .content-area h2, .content-area h3 { scroll-margin-top: 84px; }
+.content-area img { max-width: 100%; height: auto; border-radius: .5rem; }

@@ -19,6 +19,8 @@ import PaginaConteudo from "./pages/PaginaConteudo_optimized";
 import PainelPage from "./pages/PainelPage";
 import OnboardingWizard from './pages/Onboarding/OnboardingWizard';
 import { PlanoProvider } from "./contexts/PlanoContext";
+import AgendasPage from './pages/AgendasPage';
+import HabitosPage from './pages/HabitosPage';
 
 import { AuthRoute } from './components/autenticacao/AuthRoute';
 
@@ -145,6 +147,22 @@ function App() {
                   element={
                     <PrivateRoute>
                       <CoursesIFRSPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/agendas"
+                  element={
+                    <PrivateRoute>
+                      <AgendasPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/habitos"
+                  element={
+                    <PrivateRoute>
+                      <HabitosPage />
                     </PrivateRoute>
                   }
                 />

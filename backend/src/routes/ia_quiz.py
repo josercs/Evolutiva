@@ -1,12 +1,12 @@
 from flask import Blueprint, request, jsonify
-import google.generativeai as genai
+import importlib
 import os
 
 bp_quiz = Blueprint('ia_quiz', __name__)
 
 @bp_quiz.route('/api/ia/quiz-feedback', methods=['POST'])
 def quiz_feedback():
-    dados = request.json
+    dados = request.json or {}
     perguntas = dados.get("questions")
     respostas = dados.get("answers")
     prompt = f"""
@@ -14,7 +14,16 @@ def quiz_feedback():
     Perguntas: {perguntas}
     Respostas do aluno: {respostas}
     """
-    genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-    model = genai.GenerativeModel(model_name=os.environ.get("GOOGLE_DEFAULT_MODEL", "gemini-1.5-flash"))
-    response = model.generate_content(prompt)
-    return jsonify({"feedback": response.text.strip()})
+    try:
+        genai = importlib.import_module("google.generativeai")
+    except Exception:
+        return jsonify({"error": "IA não disponível (dependência ausente)"}), 503
+
+    try:
+        genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+        model = genai.GenerativeModel(model_name=os.environ.get("GOOGLE_DEFAULT_MODEL", "gemini-1.5-flash"))
+        response = model.generate_content(prompt)
+        text = getattr(response, 'text', '')
+        return jsonify({"feedback": (text or '').strip()})
+    except Exception as e:
+        return jsonify({"error": "Falha ao gerar feedback", "details": str(e)}), 500

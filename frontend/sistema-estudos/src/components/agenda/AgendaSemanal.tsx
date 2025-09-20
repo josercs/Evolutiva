@@ -29,8 +29,9 @@ const AgendaSemanal: React.FC = () => {
     };
 
     return (
-        <div>
-            <table style={{ borderCollapse: "collapse" }}>
+    <div className="ml-sidebar pt-20 px-4">
+            <div className="overflow-x-auto">
+            <table className="border-collapse min-w-max">
                 <thead>
                     <tr>
                         <th></th>
@@ -42,20 +43,14 @@ const AgendaSemanal: React.FC = () => {
                 <tbody>
                     {horas.map((hora) => (
                         <tr key={hora}>
-                            <td style={{ fontSize: 12 }}>{hora}:00</td>
+                            <td className="text-[12px]">{hora}:00</td>
                             {diasSemana.map((_, dia) => {
                                 const ativo = blocos.some((b) => b.dia === dia && b.hora === hora);
                                 return (
                                     <td
                                         key={dia}
                                         onClick={() => toggleBloco(dia, hora)}
-                                        style={{
-                                            width: 32,
-                                            height: 24,
-                                            background: ativo ? "#4caf50" : "#eee",
-                                            cursor: "pointer",
-                                            border: "1px solid #ccc",
-                                        }}
+                                        className={`w-8 h-6 cursor-pointer border border-gray-300 ${ativo ? 'bg-green-500' : 'bg-gray-200'}`}
                                     />
                                 );
                             })}
@@ -63,7 +58,8 @@ const AgendaSemanal: React.FC = () => {
                     ))}
                 </tbody>
             </table>
-            <button onClick={salvarBlocos} style={{ marginTop: 16 }}>
+            </div>
+            <button onClick={salvarBlocos} className="mt-4 px-3 py-1 rounded bg-blue-600 text-white">
                 Salvar
             </button>
         </div>

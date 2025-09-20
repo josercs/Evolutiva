@@ -92,6 +92,15 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
 
       const user: UserData = await response.json();
       localStorage.setItem("user", JSON.stringify(user));
+      // garante compatibilidade com páginas que usam userId/cursoId salvos separadamente
+      try {
+        localStorage.setItem("userId", String(user.id));
+        if (user.curso_id !== undefined && user.curso_id !== null) {
+          localStorage.setItem("cursoId", String(user.curso_id));
+        } else {
+          localStorage.removeItem("cursoId");
+        }
+      } catch {}
       onLogin(user);
 
       setLoginSuccess("Login realizado com sucesso!");
@@ -120,6 +129,7 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: sanitizeInput(formData.name),
           email: sanitizeInput(formData.email),
@@ -128,14 +138,15 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
       });
       const data = await response.json();
 
-      if (!response.ok || data.error) {
-        throw new Error(data.error || data.message || "Erro ao cadastrar");
+      if (!response.ok || (data as any).error) {
+        throw new Error((data as any).error || (data as any).message || "Erro ao cadastrar");
       }
 
       // Login automático após cadastro
       const loginResponse = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        credentials: "include",
         body: JSON.stringify({
           email: sanitizeInput(formData.email),
           password: formData.password
@@ -143,8 +154,8 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
       });
       const loginData = await loginResponse.json();
 
-      if (!loginResponse.ok || !loginData.id) {
-        throw new Error(loginData.error || "Erro ao logar após cadastro.");
+      if (!loginResponse.ok || !(loginData as any).id) {
+        throw new Error((loginData as any).error || "Erro ao logar após cadastro.");
       }
 
       localStorage.setItem("user", JSON.stringify(loginData));

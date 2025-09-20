@@ -8,82 +8,87 @@ type Course = {
   nome: string;
 };
 
-// Componente principal da página de matérias do IFRS
 const CoursesIFRSPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
-  // Estado para armazenar as matérias carregadas da API
   const [courses, setCourses] = useState<Course[]>([]);
-  // Estado para controlar o carregamento (loading)
   const [isLoading, setIsLoading] = useState(true);
-  // Estado para o termo de busca digitado pelo usuário
   const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  // Efeito que roda ao montar o componente para buscar as matérias do IFRS na API
   useEffect(() => {
-    const fetchMaterias = async () => {
+    const controller = new AbortController();
+    (async () => {
       try {
-        // Faz a requisição para a API buscando as matérias do IFRS pelo courseId
-        const res = await fetch(`/api/materias?course_id=${courseId}`);
+        setIsLoading(true);
+        setError(null);
+        const res = await fetch(`/api/materias?course_id=${courseId}`, { signal: controller.signal });
         const data = await res.json();
-        // Atualiza o estado com as matérias recebidas
         setCourses(data.materias || []);
-      } catch (error) {
-        // Em caso de erro, exibe no console
-        console.error('Erro ao carregar matérias do IFRS:', error);
+      } catch (e: any) {
+        if (e.name !== 'AbortError') setError('Não foi possível carregar as matérias do IFRS.');
       } finally {
-        // Finaliza o carregamento
         setIsLoading(false);
       }
-    };
-    fetchMaterias();
+    })();
+    return () => controller.abort();
   }, [courseId]);
 
-  // Filtra as matérias conforme o termo de busca digitado
-  const filteredCourses = courses.filter(
-    (course) =>
-      course.nome &&
-      course.nome.toLowerCase().includes((searchTerm || '').toLowerCase())
+  const filteredCourses = courses.filter((c) =>
+    (c.nome || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Renderização do componente
   return (
-    <div className="max-w-5xl mx-auto px-2 sm:px-6 py-8 space-y-8">
-      {/* Cabeçalho da página com título e campo de busca */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight drop-shadow-sm">
-          <span className="text-green-600">Matérias</span> IFRS
-        </h1>
-        <input
-          placeholder="Buscar matéria..."
-          className="border border-gray-300 focus:border-green-600 focus:ring-2 focus:ring-green-200 px-4 py-2 rounded-lg shadow-sm transition-all duration-200 w-full max-w-xs"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-      {/* Exibe o loading enquanto carrega */}
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-[#4A90E2]"></div>
+  <div className="relative ml-sidebar pt-navbar max-w-6xl mx-auto px-3 sm:px-4 py-8 space-y-6 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
+      {/* fundo premium (uma vez por página) */}
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(900px_500px_at_10%_-10%,rgba(14,165,233,0.08),transparent),radial-gradient(700px_420px_at_95%_-5%,rgba(37,99,235,0.06),transparent)]" />
+      {/* ...existing header... */}
+      {error && (
+        <div className="rounded-2xl border border-rose-200/60 dark:border-rose-400/30 bg-rose-50/80 dark:bg-rose-400/10 p-6 text-center">
+          <p className="text-rose-700 dark:text-rose-300">{error}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-sky-600 to-blue-500 text-white text-sm font-semibold shadow-md hover:from-sky-700 hover:to-blue-700 hover:shadow-lg active:scale-95 transition"
+          >
+            Tentar novamente
+          </button>
         </div>
-      ) : filteredCourses.length > 0 ? (
-        // Exibe a lista de matérias filtradas em um grid responsivo de cards
-        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
-          {filteredCourses.map((course) => (
-            <li
-              key={course.id}
-              className="w-full transition-transform duration-200 hover:scale-[1.03] hover:z-10"
-            >
-              {/* Card da matéria, clicável para navegar para o conteúdo */}
-              <CourseCard
-                id={course.id}
-                materia={course.nome} conteudo={''}              />
+      )}
+      {/* grades com alturas iguais */}
+      {isLoading ? (
+        <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch" aria-busy="true" aria-live="polite">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <li key={i} className="h-full rounded-2xl overflow-hidden border border-slate-200/60 dark:border-white/10 bg-white/90 dark:bg-white/5 backdrop-blur">
+              <div className="h-24 bg-gradient-to-r from-sky-500/8 to-cyan-500/8 dark:from-sky-500/15 dark:to-cyan-500/15 animate-pulse" />
+              <div className="p-4 space-y-2">
+                <div className="h-4 w-3/4 bg-slate-200 dark:bg-white/10 rounded animate-pulse" />
+                <div className="h-3 w-1/2 bg-slate-200 dark:bg-white/10 rounded animate-pulse" />
+              </div>
             </li>
           ))}
         </ul>
+      ) : filteredCourses.length > 0 ? (
+        <>
+          {/* Mobile: carrossel */}
+          <ul className="mt-2 flex sm:hidden gap-3.5 overflow-x-auto snap-x snap-mandatory pb-2 [-ms-overflow-style:none] [scrollbar-width:none]">
+            {filteredCourses.map((course) => (
+              <li key={course.id} className="min-w-[84%] snap-start">
+                <CourseCard id={course.id} materia={course.nome} conteudo="No seu ritmo" />
+              </li>
+            ))}
+          </ul>
+          {/* Desktop: grid com heights iguais */}
+          <ul className="mt-2 hidden sm:grid grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
+            {filteredCourses.map((course) => (
+              <li key={course.id} className="h-full">
+                <CourseCard id={course.id} materia={course.nome} conteudo="No seu ritmo" className="h-full" />
+              </li>
+            ))}
+          </ul>
+        </>
       ) : (
-        // Caso não haja matérias, exibe mensagem amigável
-        <div className="text-center py-16">
-          <h3 className="text-lg font-semibold text-gray-500">Nenhuma matéria encontrada</h3>
+        <div className="text-center py-16 rounded-2xl border border-slate-200/60 dark:border-white/10 bg-white/90 dark:bg-white/5 backdrop-blur">
+          <h3 className="text-base font-medium text-slate-600 dark:text-slate-300">Nenhuma matéria encontrada</h3>
         </div>
       )}
     </div>

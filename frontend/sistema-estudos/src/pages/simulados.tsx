@@ -33,7 +33,7 @@ function FeedbackCard({ simuladoId, onClose }: { simuladoId: number, onClose: ()
     }, [simuladoId]);
 
     return (
-        <div style={{ border: "2px solid #4caf50", padding: 20, marginTop: 20, background: "#f6fff6" }}>
+        <div className="border-2 border-green-500 p-5 mt-5 bg-green-50 rounded-md">
             <h2>Feedback Personalizado</h2>
             {loading ? <p>Carregando dicas...</p> : (
                 <ul>
@@ -58,9 +58,9 @@ export default function Simulados() {
     );
 
     return (
-        <div>
-            <h1>Simulados</h1>
-            <div>
+    <div className="ml-sidebar pt-20 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <h1 className="text-2xl font-semibold mb-4">Simulados</h1>
+            <div className="flex flex-wrap gap-2 items-center">
                 <select value={disciplina} onChange={e => setDisciplina(e.target.value)}>
                     <option value="">Todas Disciplinas</option>
                     {disciplinas.map(d => <option key={d} value={d}>{d}</option>)}
@@ -70,19 +70,16 @@ export default function Simulados() {
                     {dificuldades.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
             </div>
-            <div style={{ marginTop: 20 }}>
+            <div className="mt-5 space-y-3">
                 {filtrados.map(s => (
-                    <div
-                        key={s.id}
-                        style={{ border: "1px solid #ccc", padding: 16, marginBottom: 12, cursor: "pointer" }}
-                    >
-                        <h3>{s.nome}</h3>
-                        <p>Disciplina: {s.disciplina}</p>
-                        <p>Dificuldade: {s.dificuldade}</p>
-                        <button onClick={() => setShowFeedback({ id: s.id })}>
+                    <div key={s.id} className="border rounded-lg p-4 hover:shadow transition cursor-pointer">
+                        <h3 className="font-semibold text-lg">{s.nome}</h3>
+                        <p className="text-sm text-gray-600">Disciplina: {s.disciplina}</p>
+                        <p className="text-sm text-gray-600">Dificuldade: {s.dificuldade}</p>
+                        <button className="mt-2 px-3 py-1 bg-blue-600 text-white rounded" onClick={() => setShowFeedback({ id: s.id })}>
                             Ver Feedback IA
                         </button>
-                        <button style={{ marginLeft: 8 }} onClick={() => navigate(`/simulado/${s.id}`)}>
+                        <button className="mt-2 ml-2 px-3 py-1 bg-green-600 text-white rounded" onClick={() => navigate(`/simulado/${s.id}`)}>
                             Iniciar Simulado
                         </button>
                     </div>

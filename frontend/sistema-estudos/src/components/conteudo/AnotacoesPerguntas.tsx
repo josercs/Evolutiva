@@ -92,6 +92,8 @@ export default function AnotacoesPerguntas({
                   <button
                     onClick={() => handleRemoveQuestion(idx)}
                     className="text-red-500 hover:text-red-700"
+                    title="Remover pergunta"
+                    aria-label="Remover pergunta"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"

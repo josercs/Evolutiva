@@ -67,6 +67,7 @@ interface PlanoEstudo {
 }
 
 interface AtividadePendente {
+  id?: string | number;
   subject: string;
   topic: string;
   date: string;
@@ -185,10 +186,10 @@ const ProgressoMateriaCard = ({
 }) => (
   <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700 group">
     <div className="flex justify-between items-center mb-2">
-      <span className="font-medium text-gray-800 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+  <span className="font-medium text-gray-800 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
         {materia}
       </span>
-      <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+  <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
         {percent}%
       </span>
     </div>
@@ -203,7 +204,7 @@ const ProgressoMateriaCard = ({
 
 const AchievementItem = ({ achievement }: { achievement: Achievement }) => (
   <li className="bg-white dark:bg-gray-800 rounded-lg p-3 flex items-start gap-3 shadow-sm hover:shadow-md transition-all border border-gray-200 dark:border-gray-700">
-    <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-full">
+  <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full">
       <span role="img" aria-label="Troféu" className="text-xl">
         {achievement.icon || "🏆"}
       </span>
@@ -227,14 +228,14 @@ const StatCard = ({
   label: string;
   icon: string;
 }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+  <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] shadow-[0_8px_20px_-12px_rgba(0,0,0,.25)] p-4">
     <div className="flex items-center gap-3">
-      <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg">
-        <span className="text-xl">{icon}</span>
+      <div className="inline-flex items-center justify-center rounded-full bg-[var(--brand-50)] text-[color:var(--brand-700)] w-9 h-9">
+        <span aria-hidden className="text-base">{icon}</span>
       </div>
       <div>
-        <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">{value}</div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">{label}</div>
+        <div className="text-2xl font-semibold text-slate-900">{value}</div>
+        <div className="text-sm text-slate-600">{label}</div>
       </div>
     </div>
   </div>
@@ -273,11 +274,46 @@ const PainelPage: React.FC = () => {
   const [isAddingActivity, setIsAddingActivity] = useState(false);
   const [dataRevisaoSelecionada, setDataRevisaoSelecionada] = useState<Date | undefined>(undefined);
 
+  // Helpers para semana corrente (início na segunda)
+  const startOfWeekMon = (d: Date) => {
+    const base = new Date(d);
+    base.setHours(0, 0, 0, 0);
+    const day = base.getDay(); // 0..6 (dom..sáb)
+    const diff = (day + 6) % 7; // deslocamento até segunda
+    base.setDate(base.getDate() - diff);
+    return base;
+  };
+  const endOfWeekMon = (d: Date) => {
+    const s = startOfWeekMon(d);
+    const e = new Date(s);
+    e.setDate(e.getDate() + 6);
+    e.setHours(23, 59, 59, 999);
+    return e;
+  };
+  const parseDateBRToLocal = (s: string) => {
+    const [dd, mm, yyyy] = (s || '').split('/').map(Number);
+    if (!dd || !mm || !yyyy) return new Date('Invalid');
+    return new Date(yyyy, mm - 1, dd, 12, 0, 0, 0);
+  };
+  const planoSemanaDays = React.useMemo(() => {
+    const all = plano?.days || [];
+    const today = new Date();
+    const start = startOfWeekMon(today);
+    const end = endOfWeekMon(today);
+    return all.filter(d => {
+      const dt = parseDateBRToLocal(d.date);
+      return dt >= start && dt <= end;
+    });
+  }, [plano]);
+
   // Buscar dados do plano de estudo
   useEffect(() => {
     const fetchPlano = async () => {
       try {
-        const res = await fetch("/api/planos/me", { credentials: "include" });
+        const storedUser = localStorage.getItem("user");
+        const email = storedUser ? JSON.parse(storedUser).email : undefined;
+        if (!email) return;
+        const res = await fetch(`/api/planos/por-email?email=${encodeURIComponent(email)}`, { credentials: "include" });
         const data = await res.json();
         setPlano(data.plano_estudo);
       } catch (error) {
@@ -379,7 +415,7 @@ const PainelPage: React.FC = () => {
   const atividadesFiltradas = React.useMemo(() => {
     return plano?.days?.flatMap(day => day.blocks.filter(block => {
       const matchesMateria = materiaFiltro ? block.subject === materiaFiltro : true;
-      const matchesTipo = tipoFiltro ? block.activity_type === tipoFiltro : true;
+      const matchesTipo = tipoFiltro ? normalize(block.activity_type) === normalize(tipoFiltro) : true;
       return matchesMateria && matchesTipo && !block.completed;
     })) || [];
   }, [plano, materiaFiltro, tipoFiltro]);
@@ -387,11 +423,14 @@ const PainelPage: React.FC = () => {
   // Função para marcar atividade como concluída
   const marcarAtividadeComoConcluida = async (atividade: any) => {
     try {
+      const storedUser = localStorage.getItem("user");
+      const email = storedUser ? JSON.parse(storedUser).email : undefined;
       await fetch("/api/planos/concluir-bloco", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
+          email,
           atividadeId: atividade.id
         }),
       });
@@ -422,7 +461,7 @@ const PainelPage: React.FC = () => {
   // Atualizar plano de estudos
   const atualizarPlano = async (email: string) => {
     try {
-      const res = await fetch(`/api/planos/me?email=${email}`, { credentials: "include" });
+      const res = await fetch(`/api/planos/por-email?email=${encodeURIComponent(email)}`, { credentials: "include" });
       const data = await res.json();
       setPlano(data.plano_estudo);
     } catch (error) {
@@ -431,41 +470,48 @@ const PainelPage: React.FC = () => {
   };
 
   const agendarRevisao = async (block: AtividadePendente, dataRevisao: Date | null) => {
-    if (!plano || !dataRevisao) return;
+    if (!dataRevisao) return;
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     if (!user.email) {
       alert("Usuário não autenticado.");
       return;
     }
 
-    const revisaoDateStr = dataRevisao.toISOString().split("T")[0];
-
-    let diaRevisao = plano.days?.find(d => d.date === revisaoDateStr);
-    if (!diaRevisao) {
-      diaRevisao = { date: revisaoDateStr, blocks: [] };
-      plano.days = [...(plano.days || []), diaRevisao];
+    if (!block.id && block.id !== 0) {
+      alert("Este bloco não possui ID de conteúdo para revisão.");
+      return;
     }
 
-    diaRevisao.blocks.push({
-      start_time: block.start_time,
-      end_time: block.end_time,
-      subject: block.subject,
-      topic: block.topic,
-      activity_type: "revisão",
-      duration: 30,
-      completed: false,
-      status: "pendente"
-    });
+    // Formata dd/MM/YYYY para o backend
+    const dia = String(dataRevisao.getDate()).padStart(2, '0');
+    const mes = String(dataRevisao.getMonth() + 1).padStart(2, '0');
+    const ano = dataRevisao.getFullYear();
+    const dataStr = `${dia}/${mes}/${ano}`;
 
-    await fetch("/api/planos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email: user.email, plano }),
-    });
-
-    alert("Revisão agendada para " + revisaoDateStr + "!");
-    setPlano({ ...plano });
+    try {
+      const resp = await fetch('/api/planos/marcar-revisao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: user.email,
+          conteudo_id: block.id,
+          date: dataStr,
+          start_time: block.start_time || '19:00',
+          duration: 45,
+        })
+      });
+      if (!resp.ok) {
+        const j = await resp.json().catch(() => ({}));
+        throw new Error(j.error || 'Falha ao marcar revisão');
+      }
+      alert("Revisão agendada para " + dataStr + "!");
+      await atualizarPlano(user.email);
+      await fetchPendencias();
+    } catch (e:any) {
+      console.error(e);
+      alert(e.message || 'Erro ao marcar revisão');
+    }
   };
 
   // Se não estiver autenticado
@@ -483,9 +529,9 @@ const PainelPage: React.FC = () => {
   // Tela de loading
   if (globalLoading) {
     return (
-      <div className="max-w-6xl mx-auto p-4 flex justify-center items-center h-screen">
+  <div className="ml-sidebar pt-20 max-w-6xl mx-auto p-4 flex justify-center items-center min-h-screen">
         <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-gray-600 dark:text-gray-400">Carregando seu painel...</p>
         </div>
       </div>
@@ -493,7 +539,9 @@ const PainelPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 space-y-8">
+  <main className="relative ml-sidebar pt-20 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(900px_500px_at_10%_-10%,rgba(14,165,233,0.06),transparent),radial-gradient(700px_420px_at_95%_-5%,rgba(37,99,235,0.05),transparent)]" />
+      <div className="max-w-3xl mx-auto space-y-8">
       {/* Cabeçalho */}
       <header className="text-center space-y-2">
         <motion.h1 
@@ -505,7 +553,7 @@ const PainelPage: React.FC = () => {
         </motion.h1>
         {curso && (
           <p className="text-gray-600 dark:text-gray-400">
-            Curso atual: <span className="font-medium text-indigo-600 dark:text-indigo-400">{curso}</span>
+            Curso atual: <span className="font-medium text-blue-600 dark:text-blue-400">{curso}</span>
           </p>
         )}
       </header>
@@ -522,9 +570,10 @@ const PainelPage: React.FC = () => {
             <span>⚠️</span>
             Atividades Pendentes ou com Dificuldade
           </h2>
-          <ul className="space-y-3">
+          <div className="space-y-3" role="list">
             {pendencias.map((block, i) => (
-              <motion.li
+              <motion.div
+                role="listitem"
                 key={i}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -554,7 +603,7 @@ const PainelPage: React.FC = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-700"
+                        className="text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700"
                       >
                         Agendar Revisão
                       </Button>
@@ -624,14 +673,14 @@ const PainelPage: React.FC = () => {
                     {isResolving ? "Processando..." : "Resolvido"}
                   </Button>
                 </div>
-              </motion.li>
+        </motion.div>
             ))}
-          </ul>
+      </div>
         </motion.section>
       )}
 
-      {/* Dashboard do usuário */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  {/* Dashboard do usuário */}
+  <section className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
         <StatCard 
           value={xp} 
           label="XP Acumulado" 
@@ -703,12 +752,12 @@ const PainelPage: React.FC = () => {
                 head_cell: "text-center text-xs font-semibold text-gray-500 dark:text-gray-400 py-2",
                 row: "grid grid-cols-7 gap-y-2",
                 cell: "flex items-center justify-center h-14",
-                day: "flex items-center justify-center w-12 h-12 rounded-lg transition-colors text-base font-medium select-none cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30",
-                day_selected: "bg-indigo-600 text-white hover:bg-indigo-700",
-                day_today: "border border-indigo-400 font-bold",
+                day: "flex items-center justify-center w-12 h-12 rounded-lg transition-colors text-base font-medium select-none cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30",
+                day_selected: "bg-blue-600 text-white hover:bg-blue-700",
+                day_today: "border border-blue-400 font-bold",
                 day_outside: "text-gray-300 dark:text-gray-600",
                 day_disabled: "opacity-40 pointer-events-none",
-                nav_button: "rounded-full p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors",
+                nav_button: "rounded-full p-2 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors",
               }}
               showOutsideDays
             />
@@ -717,7 +766,7 @@ const PainelPage: React.FC = () => {
       </section>
 
       {/* Cards de Atividades e Resumo Semanal */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         {/* Card: Atividades */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -752,10 +801,10 @@ const PainelPage: React.FC = () => {
           {/* Lista de atividades */}
           <div className="space-y-3">
             {(() => {
-              const dia = plano?.days?.find(d => d.date === date?.toISOString().split('T')[0]);
+              const dia = plano?.days?.find(d => d.date === formatDateBR(date));
               const blocos = dia?.blocks?.filter(block => {
                 const matchesMateria = materiaFiltro ? block.subject === materiaFiltro : true;
-                const matchesTipo = tipoFiltro ? block.activity_type === tipoFiltro : true;
+                const matchesTipo = tipoFiltro ? normalize(block.activity_type) === normalize(tipoFiltro) : true;
                 return matchesMateria && matchesTipo && !block.completed;
               }) || [];
               
@@ -765,7 +814,7 @@ const PainelPage: React.FC = () => {
                     <p>Nenhuma atividade planejada para este dia</p>
                     <Button 
                       variant="link" 
-                      className="mt-2 text-indigo-600 dark:text-indigo-400 gap-1"
+                      className="mt-2 text-blue-600 dark:text-blue-400 gap-1"
                       onClick={() => setIsAddingActivity(true)}
                     >
                       Planejar atividade
@@ -792,7 +841,7 @@ const PainelPage: React.FC = () => {
                             <span>{block.start_time} - {block.end_time}</span>
                             <span>•</span>
                             <span>{block.duration} min</span>
-                            <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300">
+                            <span className="px-2 py-0.5 rounded-full text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300">
                               {block.activity_type}
                             </span>
                           </div>
@@ -809,7 +858,7 @@ const PainelPage: React.FC = () => {
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50"
+                          className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50"
                           onClick={() => marcarAtividadeComoConcluida(block)}
                         >
                           Concluir
@@ -827,21 +876,22 @@ const PainelPage: React.FC = () => {
           <div className="grid grid-cols-1 gap-4 text-center">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Dias estudados</p>
-              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">5/7</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">5/7</p>
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Horas esta semana</p>
-              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">12h 45min</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">12h 45min</p>
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tarefas concluídas</p>
-              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">18/25</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">18/25</p>
             </div>
           </div>
         </div>
+        </div>
+        </div>
       </div>
-    </div>
-    </div>
+    </main>
   );
 };
 
@@ -851,6 +901,15 @@ function getProximoSabado(fromDate?: Date) {
   const diff = (6 - day + 7) % 7 || 7; // 6 = sábado
   date.setDate(date.getDate() + diff);
   return date;
+}
+
+const normalize = (s: string) => (s || "").normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const formatDateBR = (d?: Date) => {
+  if (!d) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 export default PainelPage;

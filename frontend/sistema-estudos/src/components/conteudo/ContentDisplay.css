@@ -1,0 +1,93 @@
+/* Estilos globais para o conteúdo matemático */
+.math-content {
+  font-family: 'Inter', sans-serif;
+  color: #1f2937;
+}
+
+.math-content .progress-container {
+  width: 100%;
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.math-content .progress-bar {
+  height: 0.5rem;
+  background-color: #3b82f6;
+  border-radius: 0.25rem;
+  transition: width 0.5s ease;
+}
+
+.math-content .progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.math-content .interactive-diagram polygon,
+.math-content .interactive-diagram circle,
+.math-content .interactive-diagram path {
+  transition: all 0.3s ease;
+}
+
+.math-content .interactive-diagram polygon:hover,
+.math-content .interactive-diagram circle:hover {
+  fill: #3b82f6;
+  cursor: pointer;
+}
+
+.math-content .drag-drop-item {
+  transition: transform 0.2s;
+}
+
+.math-content .drag-drop-item:hover {
+  transform: scale(1.05);
+  cursor: grab;
+}
+
+.math-content .drag-drop-item:active {
+  cursor: grabbing;
+}
+
+.math-content .dropzone.highlight {
+  background-color: #EDE9FE;
+}
+
+.math-content .quiz-option.selected-correct {
+  background-color: #D1FAE5;
+  border-color: #10B981;
+}
+
+.math-content .quiz-option.selected-incorrect {
+  background-color: #FEE2E2;
+  border-color: #EF4444;
+}
+/* Garanta que os estilos dos botões estão corretos */
+.math-content .quiz-option {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.math-content .quiz-option:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.math-content .drag-drop-item {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Estilos para feedback */
+.math-content .quiz-feedback {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.math-content .quiz-feedback.show {
+  opacity: 1;
+  max-height: 200px;
+}

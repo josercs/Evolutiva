@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.dialects.postgresql import ARRAY, TEXT
 
 db = SQLAlchemy()
 
@@ -10,18 +11,18 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)  # was 128; 255 avoids truncation
     role = db.Column(db.String(20), default='student')
     avatar_url = db.Column(db.String(255), nullable=True)
     has_onboarding = db.Column(db.Boolean, default=False)
     idade = db.Column(db.Integer)
-    escolaridade = db.Column(db.String(50))
-    objetivo = db.Column(db.String(100))
-    dias_disponiveis = db.Column(db.ARRAY(db.String))
+    escolaridade = db.Column(db.String(64), nullable=True)     # antes podia ser muito curto
+    objetivo = db.Column(db.String(120), nullable=True)
+    dias_disponiveis = db.Column(ARRAY(TEXT), nullable=True)  # JSON for SQLite/Postgres compatibility (replaces ARRAY)
     tempo_diario = db.Column(db.Integer)
-    estilo_aprendizagem = db.Column(db.String(50))
-    ritmo = db.Column(db.String(50))
-    horario_inicio = db.Column(db.Time)
+    estilo_aprendizagem = db.Column(db.String(32), nullable=True)
+    ritmo = db.Column(db.String(16), nullable=True)            # ex.: leve | moderado | desafiador
+    horario_inicio = db.Column(db.Time, nullable=True)
     created_at = db.Column(db.DateTime, default=db.func.now())
     updated_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
     curso_id = db.Column(db.Integer, db.ForeignKey('cursos.id'), nullable=True)
@@ -292,4 +293,45 @@ class PomodoroSession(db.Model):
     fim = db.Column(db.DateTime, nullable=False)
     tipo = db.Column(db.String(20), nullable=False)  # foco, pausa, pausa longa
     duracao = db.Column(db.Integer, nullable=False)
+
+# --- Novas tabelas para agendas e hábitos ---
+class AgendaBloco(db.Model):
+    __tablename__ = 'agenda_blocos'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    date = db.Column(db.String(20), nullable=False)  # formato dd/MM/YYYY
+    start_time = db.Column(db.String(5), nullable=False)  # HH:MM
+    end_time = db.Column(db.String(5), nullable=False)    # HH:MM
+    activity_type = db.Column(db.String(40), nullable=False)
+    subject = db.Column(db.String(255))
+    topic = db.Column(db.String(255))
+    duration = db.Column(db.Integer)
+    priority = db.Column(db.Integer)
+    status = db.Column(db.String(20))
+    content_id = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class HabitoCheckin(db.Model):
+    __tablename__ = 'habitos_checkin'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    habit = db.Column(db.String(50), nullable=False)  # ex: estudo_diario, leitura, etc.
+    date = db.Column(db.String(20), nullable=False)   # formato dd/MM/YYYY
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'habit', 'date', name='uq_habito_user_habit_date'),
+    )
+
+# --- Persistente cache para resultados do YouTube ---
+class YouTubeCache(db.Model):
+    __tablename__ = 'youtube_cache'
+    id = db.Column(db.Integer, primary_key=True)
+    query = db.Column(db.String(255), nullable=False, index=True)
+    max_results = db.Column(db.Integer, nullable=False, default=3)
+    results = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    def __repr__(self):
+        return f'<YouTubeCache q={self.query} max={self.max_results}>'
 

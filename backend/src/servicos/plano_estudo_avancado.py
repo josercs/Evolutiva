@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from pydantic import BaseModel
 from collections import deque
+from pydantic import Field
 
 class Conteudo(BaseModel):
     id: int
@@ -10,7 +11,7 @@ class Conteudo(BaseModel):
     topic: str
     difficulty: str = "medium"
     estimated_time: int = 45
-    dependencies: List[int] = []
+    dependencies: List[int] = Field(default_factory=list)
 
 class UserPreferences(BaseModel):
     available_days: List[str] = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"]
@@ -113,44 +114,91 @@ def create_daily_structure(user: UserPreferences) -> List[Dict]:
             start = end
     return blocks
 
-def get_next_week_dates(selected_days: List[str]) -> List[str]:
+def _available_weekday_indices(selected_days: List[str]) -> List[int]:
     dias_map = {
-        "segunda": 0, "terça": 1, "terca": 1, "quarta": 2, "quinta": 3, "sexta": 4, "sábado": 5, "sabado": 5, "domingo": 6
+        "segunda": 0, "terça": 1, "terca": 1, "quarta": 2, "quinta": 3, "sexta": 4,
+        "sábado": 5, "sabado": 5, "domingo": 6
     }
-    today = datetime.now()
-    week_dates = []
-    used_weekdays = set()
-    for dia in selected_days:
-        dia_idx = dias_map[dia.strip().lower()]
-        if today.weekday() == dia_idx:
-            target_date = today
-        else:
-            days_ahead = (dia_idx - today.weekday() + 7) % 7
-            target_date = today + timedelta(days=days_ahead)
-        if target_date.weekday() not in used_weekdays:
-            used_weekdays.add(target_date.weekday())
-            week_dates.append(target_date.strftime("%d/%m/%Y"))
-    return week_dates
+    idxs = []
+    for dia in selected_days or []:
+        k = dia.strip().lower()
+        if k in dias_map:
+            idx = dias_map[k]
+            if idx not in idxs:
+                idxs.append(idx)
+    # fallback padrão (dias úteis) se nada válido foi informado
+    return idxs or [0, 1, 2, 3, 4]
 
-def allocate_contents(conteudos_pendentes, novos_conteudos, daily_structure, user, revisoes_agendadas=None):
-    days = []
-    content_queue = deque(conteudos_pendentes + novos_conteudos)
-    random.shuffle(content_queue)
-    week_dates = get_next_week_dates(user.available_days)
+
+def _generate_schedule_covering_all(
+    conteudos_pendentes: List[StudyBlock],
+    novos_conteudos: List[Conteudo],
+    daily_structure: List[Dict],
+    user: UserPreferences,
+    revisoes_agendadas: Optional[Dict[str, List[StudyBlock]]] = None,
+    max_days: int = 365,
+) -> List[DailyPlan]:
+    """Gera dias sucessivos seguindo os dias disponíveis do usuário até alocar todo o conteúdo.
+
+    - Sábado: mantém a regra original (inclui somente revisões agendadas, se houver).
+    - Domingo: trata como dia normal, se configurado em available_days.
+    - Limite de segurança: max_days para evitar loop infinito em configurações inválidas.
+    """
+    days: List[DailyPlan] = []
+    content_list = list(conteudos_pendentes + novos_conteudos)
+    random.shuffle(content_list)
+    content_queue = deque(content_list)
 
     revisoes_agendadas = revisoes_agendadas or {}
+    today = datetime.now()
+    available_idx = set(_available_weekday_indices(user.available_days))
 
-    for i, date in enumerate(week_dates):
-        dia_semana = datetime.strptime(date, "%d/%m/%Y").weekday()  # 5 = sábado
-        blocks = []
+    # Se só sábado estiver habilitado e houver conteúdo, para não travar, permitimos alocação normal também no sábado
+    saturday_only = available_idx == {5}
+
+    # guarda para evitar duplicidades de mesmo dia
+    seen_dates = set()
+
+    for offset in range(max_days):
+        if not content_queue:
+            break
+        current = today + timedelta(days=offset)
+        if current.weekday() not in available_idx:
+            continue
+
+        date_str = current.strftime("%d/%m/%Y")
+        if date_str in seen_dates:
+            continue
+        seen_dates.add(date_str)
+
+        blocks: List[StudyBlock] = []
         total_study = 0
 
-        if dia_semana == 5:  # Sábado
-            # Só adiciona revisões marcadas pelo usuário
-            for bloco in revisoes_agendadas.get(date, []):
-                blocks.append(bloco)
-                total_study += bloco.duration
-
+        if current.weekday() == 5:  # sábado
+            # Regra original: só revisões; se only saturday disponível e há conteúdo, aloca normalmente
+            if saturday_only:
+                # aloca normalmente
+                for block in daily_structure:
+                    if not content_queue:
+                        break
+                    content = content_queue.popleft()
+                    blocks.append(StudyBlock(
+                        id=content.id,
+                        start_time=block["start_time"],
+                        end_time=block["end_time"],
+                        activity_type=block["activity_type"],
+                        subject=content.subject,
+                        topic=content.topic,
+                        duration=block["duration"],
+                        priority=1,
+                        status=getattr(content, "status", "ok")
+                    ))
+                    total_study += block["duration"]
+            else:
+                # apenas revisões existentes para este dia
+                for bloco in revisoes_agendadas.get(date_str, []):
+                    blocks.append(bloco)
+                    total_study += bloco.duration
         else:
             for block in daily_structure:
                 if not content_queue:
@@ -169,12 +217,22 @@ def allocate_contents(conteudos_pendentes, novos_conteudos, daily_structure, use
                 ))
                 total_study += block["duration"]
 
-        days.append(DailyPlan(
-            date=date,
-            blocks=blocks,
-            total_study_time=total_study
-        ))
+        days.append(DailyPlan(date=date_str, blocks=blocks, total_study_time=total_study))
+
     return days
+
+def allocate_contents(conteudos_pendentes, novos_conteudos, daily_structure, user, revisoes_agendadas=None):
+    """Compat: mantém a assinatura, mas agora gera até cobrir todo o conteúdo.
+
+    Continua respeitando available_days e a regra de sábado.
+    """
+    return _generate_schedule_covering_all(
+        conteudos_pendentes=conteudos_pendentes,
+        novos_conteudos=novos_conteudos,
+        daily_structure=daily_structure,
+        user=user,
+        revisoes_agendadas=revisoes_agendadas,
+    )
 
 def create_smart_goals(schedule: List[DailyPlan], user: UserPreferences) -> List[str]:
     n_practice = sum(1 for d in schedule for b in d.blocks if b.activity_type == "prática")
@@ -196,12 +254,61 @@ def calculate_coverage(schedule: List[DailyPlan], all_contents: List[Conteudo]) 
         coverage[subj] = round(100 * done / total, 1) if total else 0.0
     return coverage
 
-def generate_study_plan(user: UserPreferences, contents: List[Conteudo], semana_anterior: Optional[List[DailyPlan]] = None):
+def _coerce_semana_anterior(semana):
+    if not semana:
+        return None
+    coerced = []
+    try:
+        for dia in semana:
+            if isinstance(dia, DailyPlan):
+                coerced.append(dia)
+                continue
+            # Expect dict
+            blocks = []
+            for b in dia.get('blocks', []):
+                if isinstance(b, StudyBlock):
+                    blocks.append(b)
+                elif isinstance(b, dict):
+                    try:
+                        blocks.append(StudyBlock(**b))
+                    except Exception:
+                        # minimal fallback
+                        blocks.append(StudyBlock(
+                            id=b.get('id', -1),
+                            start_time=b.get('start_time', '00:00'),
+                            end_time=b.get('end_time', '00:00'),
+                            activity_type=b.get('activity_type', 'leitura'),
+                            subject=b.get('subject', ''),
+                            topic=b.get('topic', ''),
+                            duration=int(b.get('duration', 40)),
+                            priority=int(b.get('priority', 1)),
+                            status=b.get('status', 'ok')
+                        ))
+                else:
+                    # Skip unknown types
+                    continue
+            try:
+                total_time = int(dia.get('total_study_time', sum(getattr(b, 'duration', 0) for b in blocks)))
+            except Exception:
+                total_time = sum(getattr(b, 'duration', 0) for b in blocks)
+            coerced.append(DailyPlan(
+                date=dia.get('date', datetime.now().strftime('%d/%m/%Y')),
+                blocks=blocks,
+                total_study_time=total_time,
+                focus_area=dia.get('focus_area')
+            ))
+        return coerced
+    except Exception:
+        return None
+
+
+def generate_study_plan(user: UserPreferences, contents: List[Conteudo], semana_anterior: Optional[List[DailyPlan]] = None, plano_dados_salvo: Optional[dict] = None):
     try:
         prioritized_contents = prioritize_contents(contents, user)
         daily_structure = create_daily_structure(user)
-        conteudos_pendentes = get_pending_blocks(semana_anterior) if semana_anterior else []
-        revisoes_agendadas = extrair_revisoes_agendadas(None)
+        semana_prev = _coerce_semana_anterior(semana_anterior)
+        conteudos_pendentes = get_pending_blocks(semana_prev) if semana_prev else []
+        revisoes_agendadas = extrair_revisoes_agendadas(plano_dados_salvo)
         weekly_schedule = allocate_contents(conteudos_pendentes, prioritized_contents, daily_structure, user, revisoes_agendadas)
         if conteudos_pendentes:
             bloco_revisao = StudyBlock(

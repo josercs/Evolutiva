@@ -137,11 +137,11 @@ const LessonPage = () => {
   }, [courseId, lessonId]);
 
   const [activeTab, setActiveTab] = useState('content');
-  const [quizAnswers, setQuizAnswers] = useState({});
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
 
-  const handleAnswerSelect = (questionId, optionId) => {
+  const handleAnswerSelect = (questionId: number, optionId: number) => {
     setQuizAnswers({
       ...quizAnswers,
       [questionId]: optionId
@@ -167,150 +167,153 @@ const LessonPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-        </div>
-      ) : lesson && course ? (
-        <>
-          <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-            <div>
-              <Link to={`/cursos/${courseId}`} className="text-indigo-600 hover:text-indigo-800 flex items-center mb-2">
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Voltar para {course.title}
-              </Link>
-              <h1 className="text-3xl font-bold text-gray-800">{lesson.title}</h1>
-              <div className="flex items-center mt-2 text-gray-600">
-                <Clock className="h-4 w-4 mr-1" />
-                <span>{lesson.duration}</span>
+  <div className="relative ml-sidebar max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 py-8">
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(900px_500px_at_10%_-10%,rgba(14,165,233,0.08),transparent),radial-gradient(700px_420px_at_95%_-5%,rgba(37,99,235,0.06),transparent)]" />
+      <div className="space-y-6">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+          </div>
+        ) : lesson && course ? (
+          <>
+            <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+              <div>
+                <Link to={`/cursos/${courseId}`} className="text-blue-600 hover:text-blue-800 flex items-center mb-2">
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Voltar para {course.title}
+                </Link>
+                <h1 className="text-3xl font-bold text-gray-800">{lesson.title}</h1>
+                <div className="flex items-center mt-2 text-gray-600">
+                  <Clock className="h-4 w-4 mr-1" />
+                  <span>{lesson.duration}</span>
+                </div>
+              </div>
+              <div className="w-full md:w-64">
+                <p className="text-sm text-gray-600 mb-1">Progresso do curso</p>
+                <Progress value={course.progress} className="h-2" />
+                <p className="text-xs text-gray-500 mt-1 text-right">{course.progress}% concluído</p>
               </div>
             </div>
-            <div className="w-full md:w-64">
-              <p className="text-sm text-gray-600 mb-1">Progresso do curso</p>
-              <Progress value={course.progress} className="h-2" />
-              <p className="text-xs text-gray-500 mt-1 text-right">{course.progress}% concluído</p>
-            </div>
-          </div>
-          
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="content">Conteúdo</TabsTrigger>
-              <TabsTrigger value="quiz" disabled={!lesson.hasQuiz}>Quiz</TabsTrigger>
-            </TabsList>
             
-            <TabsContent value="content" className="mt-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content }}></div>
-                  
-                  <div className="mt-8 flex justify-between">
-                    {lesson.prevLesson ? (
-                      <Link to={`/cursos/${courseId}/aula/${lesson.prevLesson}`}>
-                        <Button variant="outline" className="flex items-center">
-                          <ArrowLeft className="h-4 w-4 mr-2" />
-                          Aula Anterior
-                        </Button>
-                      </Link>
-                    ) : (
-                      <div></div>
-                    )}
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="content">Conteúdo</TabsTrigger>
+                <TabsTrigger value="quiz" disabled={!lesson.hasQuiz}>Quiz</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="content" className="mt-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content }}></div>
                     
-                    {lesson.nextLesson ? (
-                      <Link to={`/cursos/${courseId}/aula/${lesson.nextLesson}`}>
+                    <div className="mt-8 flex justify-between">
+                      {lesson.prevLesson ? (
+                        <Link to={`/cursos/${courseId}/aula/${lesson.prevLesson}`}>
+                          <Button variant="outline" className="flex items-center">
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Aula Anterior
+                          </Button>
+                        </Link>
+                      ) : (
+                        <div></div>
+                      )}
+                      
+                      {lesson.nextLesson ? (
+                        <Link to={`/cursos/${courseId}/aula/${lesson.nextLesson}`}>
+                          <Button className="flex items-center">
+                            Próxima Aula
+                            <ArrowRight className="h-4 w-4 ml-2" />
+                          </Button>
+                        </Link>
+                      ) : (
                         <Button className="flex items-center">
-                          Próxima Aula
-                          <ArrowRight className="h-4 w-4 ml-2" />
+                          Concluir Módulo
+                          <CheckCircle className="h-4 w-4 ml-2" />
                         </Button>
-                      </Link>
-                    ) : (
-                      <Button className="flex items-center">
-                        Concluir Módulo
-                        <CheckCircle className="h-4 w-4 ml-2" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="quiz" className="mt-4">
-              <Card>
-                <CardContent className="pt-6">
-                  {!quizSubmitted ? (
-                    <>
-                      <h2 className="text-xl font-bold mb-4">{lesson.quiz.title}</h2>
-                      <div className="space-y-6">
-                        {lesson.quiz.questions.map((question, index) => (
-                          <div key={question.id} className="p-4 border rounded-lg">
-                            <h3 className="font-medium mb-3">
-                              {index + 1}. {question.content}
-                            </h3>
-                            <div className="space-y-2">
-                              {question.options.map((option) => (
-                                <div key={option.id} className="flex items-center">
-                                  <input
-                                    type="radio"
-                                    id={`q${question.id}-o${option.id}`}
-                                    name={`question-${question.id}`}
-                                    className="mr-2"
-                                    checked={quizAnswers[question.id] === option.id}
-                                    onChange={() => handleAnswerSelect(question.id, option.id)}
-                                  />
-                                  <label htmlFor={`q${question.id}-o${option.id}`}>
-                                    {option.content}
-                                  </label>
-                                </div>
-                              ))}
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="quiz" className="mt-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    {!quizSubmitted ? (
+                      <>
+                        <h2 className="text-xl font-bold mb-4">{lesson.quiz.title}</h2>
+                        <div className="space-y-6">
+                          {lesson.quiz.questions.map((question, index) => (
+                            <div key={question.id} className="p-4 border rounded-lg">
+                              <h3 className="font-medium mb-3">
+                                {index + 1}. {question.content}
+                              </h3>
+                              <div className="space-y-2">
+                                {question.options.map((option) => (
+                                  <div key={option.id} className="flex items-center">
+                                    <input
+                                      type="radio"
+                                      id={`q${question.id}-o${option.id}`}
+                                      name={`question-${question.id}`}
+                                      className="mr-2"
+                                      checked={quizAnswers[question.id] === option.id}
+                                      onChange={() => handleAnswerSelect(question.id, option.id)}
+                                    />
+                                    <label htmlFor={`q${question.id}-o${option.id}`}>
+                                      {option.content}
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
+                          ))}
+                        </div>
+                        <div className="mt-6 flex justify-end">
+                          <Button onClick={handleQuizSubmit}>Enviar Respostas</Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <div className="mb-4">
+                          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-blue-100 text-blue-800 text-3xl font-bold">
+                            {quizScore}%
                           </div>
-                        ))}
-                      </div>
-                      <div className="mt-6 flex justify-end">
-                        <Button onClick={handleQuizSubmit}>Enviar Respostas</Button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-8">
-                      <div className="mb-4">
-                        <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-indigo-100 text-indigo-800 text-3xl font-bold">
-                          {quizScore}%
+                        </div>
+                        <h2 className="text-2xl font-bold mb-2">
+                          {quizScore >= 70 ? 'Parabéns!' : 'Continue Praticando!'}
+                        </h2>
+                        <p className="text-gray-600 mb-6">
+                          {quizScore >= 70
+                            ? 'Você completou este quiz com sucesso!'
+                            : 'Revise o conteúdo e tente novamente.'}
+                        </p>
+                        <div className="flex justify-center space-x-4">
+                          <Button variant="outline" onClick={() => setQuizSubmitted(false)}>
+                            Tentar Novamente
+                          </Button>
+                          {lesson.nextLesson && (
+                            <Link to={`/cursos/${courseId}/aula/${lesson.nextLesson}`}>
+                              <Button>Próxima Aula</Button>
+                            </Link>
+                          )}
                         </div>
                       </div>
-                      <h2 className="text-2xl font-bold mb-2">
-                        {quizScore >= 70 ? 'Parabéns!' : 'Continue Praticando!'}
-                      </h2>
-                      <p className="text-gray-600 mb-6">
-                        {quizScore >= 70
-                          ? 'Você completou este quiz com sucesso!'
-                          : 'Revise o conteúdo e tente novamente.'}
-                      </p>
-                      <div className="flex justify-center space-x-4">
-                        <Button variant="outline" onClick={() => setQuizSubmitted(false)}>
-                          Tentar Novamente
-                        </Button>
-                        {lesson.nextLesson && (
-                          <Link to={`/cursos/${courseId}/aula/${lesson.nextLesson}`}>
-                            <Button>Próxima Aula</Button>
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </>
-      ) : (
-        <div className="text-center py-12">
-          <h3 className="text-lg font-medium text-gray-700">Aula não encontrada</h3>
-          <p className="text-gray-500 mt-2">A aula solicitada não está disponível.</p>
-          <Link to={`/cursos/${courseId}`}>
-            <Button className="mt-4">Voltar para o Curso</Button>
-          </Link>
-        </div>
-      )}
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </>
+        ) : (
+          <div className="text-center py-12">
+            <h3 className="text-lg font-medium text-gray-700">Aula não encontrada</h3>
+            <p className="text-gray-500 mt-2">A aula solicitada não está disponível.</p>
+            <Link to={`/cursos/${courseId}`}>
+              <Button className="mt-4">Voltar para o Curso</Button>
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,39 +1,28 @@
 import React, { useState, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import '../styles/PaginaConteudoOtimizada.css';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Player } from '@lottiefiles/react-lottie-player';
-
-// Importa animação do mascote (opcional)
-import mascotAnimation from '../assets/mascot_study.json';
-
-// Importa hooks personalizados para lógica de estudo, XP, Pomodoro, etc.
+import { ContentDisplay } from '../components/conteudo/ContentDisplay';
+import { StudyTabs } from '../components/conteudo/StudyTabs';
+import { PomodoroTimer } from '../components/pomodoro/PomodoroTimer';
+import { FloatingActionsBar } from '../components/navegacao/FloatingActionsBar';
+import { UserProgress } from '../components/conteudo/UserProgress';
+import { StudyAids } from '../components/conteudo/StudyAids';
 import { useContentLoader } from '../hooks/useContentLoader';
 import { usePomodoro } from '../hooks/usePomodoro';
 import { useXPStreak } from '../hooks/useXPStreak';
 import { useQuiz } from '../hooks/useQuiz';
 import { useNotesQuestions } from '../hooks/useNotesQuestions';
 import { useFeynman } from '../hooks/useFeynman';
-import { useTTS } from '../hooks/useTTS.tsx';
+import { useTTS } from '../hooks/useTTS';
 import { useHighlighting } from '../hooks/useHighlighting';
 import { useMindMap } from '../hooks/useMindMap';
 import { useAuth } from "../hooks/useAuth"; // ajuste o caminho conforme sua estrutura
 
-// Importa componentes padrão da aplicação
-import { ContentDisplay } from '../components/conteudo/ContentDisplay.tsx';
-import { StudyTabs } from '../components/conteudo/StudyTabs.tsx';
-import { PomodoroTimer } from '../components/pomodoro/PomodoroTimer.tsx';
-import { FloatingActionsBar } from '../components/navegacao/FloatingActionsBar';
-import { UserProgress } from '../components/conteudo/UserProgress.tsx';
-import { StudyAids } from '../components/conteudo/StudyAids.tsx';
-
-// Importa componentes modais de forma assíncrona (lazy loading)
-const QuizModalWrapper = lazy(() =>
-    import('../components/quiz/QuizModalWrapper.tsx').then(module => ({ default: module.QuizModalWrapper }))
-);
-const MindMapViewer = lazy(() =>
-    import('../components/mapas_mentais/MindMapViewer.tsx').then(module => ({ default: module.MindMapViewer }))
-);
-
+// Importa animação do mascote (opcional)
+import mascotAnimation from '../assets/mascot_study.json';
+const ytKey = import.meta.env.VITE_YT_API_KEY;
 // Lista de dicas de estudo exibidas para o usuário
 const studyTips = [
     "Faça anotações enquanto lê o conteúdo - escrever ajuda a fixar melhor.",
@@ -57,7 +46,7 @@ const showXPFloat = (text: string) => {
     const xpTag = document.createElement("div");
     xpTag.textContent = text + " 🎉";
     xpTag.className = "xp-float-anim fixed top-24 right-8 select-none";
-    document.body.appendChild(xpTag);    
+    document.body.appendChild(xpTag);
 };
 
 /**
@@ -80,8 +69,6 @@ const PaginaConteudoOtimizada: React.FC = () => {
     const { id, conteudo, loading } = useContentLoader();
     // Gerencia XP e streak do usuário
     // Substitua 'userId' pela variável/campo correto que representa o ID do usuário logado
-    // Exemplo: obtenha do contexto de autenticação ou similar
-    // Obtenha o ID real do usuário autenticado do contexto de autenticação
     const { userId } = useAuth();
     const userIdNum = Number(userId) || 0;
     const { xp, streak, addXp, incrementStreak, resetStreak } = useXPStreak(String(userIdNum)); // ou simplesmente use userId se já for string
@@ -131,14 +118,19 @@ const PaginaConteudoOtimizada: React.FC = () => {
     const notesQuestionsHook = useNotesQuestions({ contentId: id });
     // Hook para técnica Feynman (explicação com suas próprias palavras)
     const feynmanHook = useFeynman({ contentHtml: conteudo?.content_html });
-    // Hook para leitura em voz alta (TTS)
     const ttsHook = useTTS({ contentRef: mainContentRef });
     // Hook para marcação de texto
     const highlightingHook = useHighlighting({ contentRef: mainContentRef });
     // Hook para mapas mentais
     const mindMapHook = useMindMap({ contentId: id, contentHtml: conteudo?.content_html, fallbackTopic: conteudo?.topic });
 
-   
+    // --- Video suggestions area (YouTube) ---
+    const VideoAreaLazy = lazy(() => import('../components/video/VideoArea').then(m => ({ default: m.VideoArea })));
+    const VideoGridAreaLazy = lazy(() => import('../components/video/VideoGridArea').then(m => ({ default: m.VideoGridArea })));
+
+    // Lazy imports for modal components to fix missing names and reduce bundle size
+    const QuizModalWrapper = lazy(() => import('../components/quiz/QuizModalWrapper').then(m => ({ default: m.QuizModalWrapper })));
+    const MindMapViewer = lazy(() => import('../components/mapas_mentais/MindMapViewer').then(m => ({ default: m.MindMapViewer })));
 
     // Alterna exibição das dicas de estudo
     const toggleTipsCallback = useCallback(() => setShowTips(prev => !prev), []);
@@ -206,15 +198,15 @@ const PaginaConteudoOtimizada: React.FC = () => {
     if (loading) {
         // Exibe tela de loading com mascote animado
         return (
-            <div className="flex flex-col justify-center items-center h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-500">
+            <div className="ml-sidebar pt-20 flex flex-col justify-center items-center min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-sky-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-500">
                 <Player
                     autoplay
                     loop
                     src={mascotAnimation}
                     style={{ height: '120px', width: '120px' }}
                 />
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mt-4"></div>
-                <span className="mt-4 text-lg font-semibold text-indigo-600 dark:text-pink-300 font-sans">Carregando conteúdo...</span>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mt-4"></div>
+                <span className="mt-4 text-lg font-semibold text-blue-600 dark:text-blue-300 font-sans">Carregando conteúdo...</span>
             </div>
         );
     }
@@ -222,7 +214,7 @@ const PaginaConteudoOtimizada: React.FC = () => {
     if (!conteudo) {
         // Exibe mensagem de erro caso não encontre o conteúdo
         return (
-            <div className="flex flex-col justify-center items-center h-screen text-center px-4 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-500">
+            <div className="ml-sidebar pt-20 flex flex-col justify-center items-center min-h-screen text-center px-4 bg-gradient-to-br from-blue-50 via-cyan-50 to-sky-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-500">
                 <Player
                     autoplay
                     loop
@@ -249,17 +241,16 @@ const PaginaConteudoOtimizada: React.FC = () => {
 
     return (
         <div
-            className={`min-h-screen transition-colors duration-500 font-sans ${
-                darkMode
-                    ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900'
-                    : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
-            }`}
-            style={{ fontFamily: "'Poppins', 'Nunito', 'Roboto', Arial, sans-serif" }}
+            className={`ml-sidebar pt-20 min-h-screen transition-colors duration-500 font-sans custom-font-family ${darkMode
+                ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900'
+                : 'bg-gradient-to-br from-blue-50 via-cyan-50 to-sky-50'
+                }`}
         >
+
             {/* Botão para alternar tema escuro/claro */}
             <button
                 onClick={toggleTheme}
-                className="fixed top-15 right-4 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-full p-3 transition-colors"
+                className="fixed top-20 right-4 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-full p-3 transition-colors"
                 aria-label="Alternar tema"
                 title={darkMode ? "Tema claro" : "Tema escuro"}
             >
@@ -268,7 +259,7 @@ const PaginaConteudoOtimizada: React.FC = () => {
                         <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z" />
                     </svg>
                 ) : (
-                    <svg className="w-6 h-6 text-indigo-500" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
                     </svg>
                 )}
@@ -294,20 +285,18 @@ const PaginaConteudoOtimizada: React.FC = () => {
                             <span className="text-2xl" title={conteudo.materia}>{getSubjectIcon(conteudo.materia)}</span>
                             {conteudo.difficulty && (
                                 <span
-                                    className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                        conteudo.difficulty === 'basic' ? 'bg-green-100 text-green-800' :
+                                    className={`px-2 py-1 rounded-full text-xs font-bold ${conteudo.difficulty === 'basic' ? 'bg-green-100 text-green-800' :
                                         conteudo.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                                        'bg-red-100 text-red-800'
-                                    }`}
-                                    title={`Dificuldade: ${
-                                        conteudo.difficulty === 'basic'
-                                            ? 'Fácil'
-                                            : conteudo.difficulty === 'intermediate'
-                                                ? 'Médio'
-                                                : conteudo.difficulty === 'advanced'
-                                                    ? 'Difícil'
-                                                    : conteudo.difficulty
-                                    }`}
+                                            'bg-red-100 text-red-800'
+                                        }`}
+                                    title={`Dificuldade: ${conteudo.difficulty === 'basic'
+                                        ? 'Fácil'
+                                        : conteudo.difficulty === 'intermediate'
+                                            ? 'Médio'
+                                            : conteudo.difficulty === 'advanced'
+                                                ? 'Difícil'
+                                                : conteudo.difficulty
+                                        }`}
                                 >
                                     {conteudo.difficulty === 'basic'
                                         ? 'Fácil'
@@ -320,9 +309,7 @@ const PaginaConteudoOtimizada: React.FC = () => {
                             )}
                         </div>
                         {/* Título principal do conteúdo */}
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-1 text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-pink-500 to-orange-400 drop-shadow-lg font-sans tracking-tight"
-                            style={{ textShadow: "1px 2px 8px rgba(0,0,0,0.08)" }}
-                        >
+                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-1 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-400 drop-shadow-lg font-sans tracking-tight custom-content-title-shadow">
                             {conteudo.topic}
                         </h1>
                         {/* Subtítulo com nome da matéria e dificuldade */}
@@ -344,16 +331,41 @@ const PaginaConteudoOtimizada: React.FC = () => {
                             }
                         />
 
+                        {/* Video suggestions related to the topic */}
+                        <div className="mt-6">
+                            <Suspense fallback={<div className="text-center text-sm text-gray-500">Carregando vídeos relacionados...</div>}>
+                                <VideoGridAreaLazy
+                                    topic={conteudo.topic}
+                                    contentHtml={conteudo.content_html}
+                                    materia={conteudo.materia}
+                                    fallbackLink={`https://www.youtube.com/results?search_query=${encodeURIComponent(conteudo.topic)}`}
+                                />
+                            </Suspense>
+                            <div className="mt-4">
+                                <Suspense fallback={<div className="text-center text-xs text-gray-500">Carregando sugestão de vídeo...</div>}>
+                                    <VideoAreaLazy
+                                        topic={conteudo.topic}
+                                        contentHtml={conteudo.content_html}
+                                        materia={conteudo.materia}
+                                    />
+                                </Suspense>
+                            </div>
+                        </div>
+
+
+
                         {/* Cards de recursos adicionais: vídeo, exercícios, Wikipedia */}
                         <div className="mt-8 p-4 sm:p-6 bg-white/90 dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700">
-                            <h3 className="text-xl sm:text-2xl font-extrabold mb-4 sm:mb-6 text-center text-indigo-700 dark:text-pink-300 tracking-tight">
+                            <h3 className="text-xl sm:text-2xl font-extrabold mb-4 sm:mb-6 text-center text-blue-700 dark:text-blue-300 tracking-tight">
                                 Potencialize seu aprendizado
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
                                 {/* Card de vídeo aula */}
-                                <div
+                                <a
+                                    href={`https://www.youtube.com/results?search_query=${encodeURIComponent(conteudo.topic)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     className="group p-4 sm:p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-md hover:scale-105 hover:shadow-2xl transition-all flex flex-col items-center text-center cursor-pointer border border-gray-100 dark:border-gray-800"
-                                    tabIndex={0}
                                     title="Assista a uma vídeo aula sobre o tema"
                                 >
                                     <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-red-100 to-pink-200 dark:from-gray-800 dark:to-gray-900 rounded-full flex items-center justify-center mb-3 shadow-md group-hover:animate-bounce">
@@ -366,16 +378,17 @@ const PaginaConteudoOtimizada: React.FC = () => {
                                         >
                                             <path
                                                 fillRule="evenodd"
-                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm0 14a6 6 0 110-12 6 6 0 010 12z"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-14a6 6 0 110 12 6 6 0 010-12z"
                                                 clipRule="evenodd"
                                             />
                                         </svg>
                                     </div>
                                     <h4 className="font-bold text-base sm:text-lg text-gray-900 dark:text-white mb-1">Vídeo Aula</h4>
                                     <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300">
-                                        Assista a explicações em vídeo sobre este tópico
+                                        Clique para buscar no YouTube vídeos sobre este tópico
                                     </p>
-                                </div>
+                                </a>
+
                                 {/* Card de exercícios */}
                                 <a
                                     href="https://www.todamateria.com.br/exercicios/"
@@ -410,7 +423,7 @@ const PaginaConteudoOtimizada: React.FC = () => {
                                     href={`https://pt.wikipedia.org/wiki/${encodeURIComponent(conteudo.topic)}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="group p-4 sm:p-6 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-gray-900 dark:to-gray-800 rounded-2xl shadow-md hover:scale-105 hover:shadow-2xl transition-all flex flex-col items-center text-center cursor-pointer"
+                                    className="group p-4 sm:p-6 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-gray-900 dark:to-gray-800 rounded-2xl shadow-md hover:scale-105 hover:shadow-2xl transition-all flex flex-col items-center text-center cursor-pointer"
                                     tabIndex={0}
                                     title="Consulte informações adicionais na Wikipedia"
                                 >
@@ -437,29 +450,28 @@ const PaginaConteudoOtimizada: React.FC = () => {
                         {/* Botão para marcar conteúdo como concluído */}
                         <button
                             onClick={async () => {
-                              const userId = localStorage.getItem("userId"); // Certifique-se que está salvo corretamente após login/cadastro
+                                const userId = localStorage.getItem("userId"); // Certifique-se que está salvo corretamente após login/cadastro
 
-                              if (!userId || userId === "undefined") {
-                                alert("Usuário não autenticado. Faça login novamente.");
-                                return;
-                              }
+                                if (!userId || userId === "undefined") {
+                                    alert("Usuário não autenticado. Faça login novamente.");
+                                    return;
+                                }
 
-                              await fetch('/api/conteudos/concluir', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'include',
-                                body: JSON.stringify({
-                                  user_id: userId,       // deve ser o id real do usuário
-                                  content_id: conteudo.id  // id do conteúdo que está sendo concluído
-                                })
-                              });
-                              toast.success("Conteúdo marcado como concluído!");
+                                await fetch('/api/conteudos/concluir', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
+                                    body: JSON.stringify({
+                                        user_id: userId,       // deve ser o id real do usuário
+                                        content_id: conteudo.id  // id do conteúdo que está sendo concluído
+                                    })
+                                });
+                                toast.success("Conteúdo marcado como concluído!");
                             }}
-                            className={`mt-4 px-4 py-2 rounded-lg transition-colors ${
-                                conteudo.is_completed 
-                                    ? 'bg-green-500 text-white' 
-                                    : 'bg-green-500 hover:bg-green-600 text-white'
-                            }`}
+                            className={`mt-4 px-4 py-2 rounded-lg transition-colors ${conteudo.is_completed
+                                ? 'bg-green-500 text-white'
+                                : 'bg-green-500 hover:bg-green-600 text-white'
+                                }`}
                             disabled={conteudo.is_completed}
                         >
                             {conteudo.is_completed ? '✓ Concluído' : 'Marcar como concluído'}
@@ -475,24 +487,16 @@ const PaginaConteudoOtimizada: React.FC = () => {
                 {/* Botão flutuante para abrir/fechar o Pomodoro */}
                 <button
                     className="fixed bottom-56 right-4 z-40 bg-red-500 hover:bg-red-600 text-white rounded-full p-3 shadow-lg transition-all
-                        w-12 h-12 flex items-center justify-center text-xl"
+                        w-12 h-12 flex items-center justify-center text-xl pomodoro-float-btn"
                     title="Abrir Pomodoro"
                     onClick={() => setShowPomodoro((prev) => !prev)}
-                    style={{
-                        minWidth: '2.75rem',
-                        minHeight: '2.75rem',
-                    }}
                 >
                     ⏲️
                 </button>
                 {/* Card Pomodoro flutuante - versão ultra compacta */}
                 {showPomodoro && (
                     <div
-                        className="fixed bottom-60 right-4 z-50 bg-white/90 dark:bg-gray-800/90 rounded shadow border border-gray-200 dark:border-gray-700 p-1 w-24 max-w-[60vw] animate-fade-in backdrop-blur-sm"
-                        style={{
-                            minWidth: '56px',
-                            maxWidth: '50vw',
-                        }}
+                        className="fixed bottom-60 right-4 z-50 bg-white/90 dark:bg-gray-800/90 rounded shadow border border-gray-200 dark:border-gray-700 p-1 w-24 max-w-[60vw] animate-fade-in backdrop-blur-sm pomodoro-compact-card"
                     >
                         <div className="flex justify-between items-center mb-0.5 text-[9px]">
                             <span className="font-bold text-red-500">⏲️</span>
@@ -528,17 +532,17 @@ const PaginaConteudoOtimizada: React.FC = () => {
                 onToggleTTS={ttsHook.toggleTTS}
                 isTTSActive={ttsHook.ttsActive}
                 onGenerateQuiz={quizHook.generateQuiz}
-                 
+
                 onToggleMindMap={mindMapHook.toggleMindMapVisibility}
             />
 
             {/* Modais carregados sob demanda */}
             <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-20 flex justify-center items-center z-50"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div></div>}>
                 {quizHook.quizLoading && (
-                    <div className="fixed inset-0 bg-gradient-to-br from-indigo-100 via-blue-100 to-pink-100 bg-opacity-80 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border-4 border-indigo-300 flex flex-col items-center animate-fade-in">
-                            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-400 mb-6"></div>
-                            <span className="text-xl font-semibold text-indigo-700 mb-2">Gerando quiz...</span>
+                    <div className="fixed inset-0 bg-gradient-to-br from-blue-100 via-cyan-100 to-sky-100 bg-opacity-80 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border-4 border-blue-300 flex flex-col items-center animate-fade-in">
+                            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-400 mb-6"></div>
+                            <span className="text-xl font-semibold text-blue-700 mb-2">Gerando quiz...</span>
                             <span className="text-gray-500 text-base">Aguarde enquanto as perguntas são preparadas para você.</span>
                         </div>
                     </div>
@@ -577,8 +581,8 @@ const PaginaConteudoOtimizada: React.FC = () => {
                 <div className="max-w-4xl mx-auto">
                     <button
                         onClick={toggleTipsCallback}
-                        className="text-indigo-600 dark:text-pink-300 font-semibold hover:underline focus:outline-none"
-                        title="Alternar dicas de estudo"          
+                        className="text-blue-600 dark:text-blue-300 font-semibold hover:underline focus:outline-none"
+                        title="Alternar dicas de estudo"
 
                     >
                         {showTips ? "Ocultar dicas" : "Mostrar dicas de estudo"}

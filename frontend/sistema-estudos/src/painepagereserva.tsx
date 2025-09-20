@@ -1,9 +1,9 @@
 // Importação de hooks, componentes de UI, animações e contexto
 import React, { useEffect, useReducer, useState } from "react";
-import { Progress } from "../components/ui/progress";
+import { Progress } from "./components/ui/progress";
 import confetti from "canvas-confetti";
 import { motion } from "framer-motion";
-import { usePlano } from "../contexts/PlanoContext";
+import { usePlano } from "./contexts/PlanoContext";
 
 // Tipagem para progresso de cada matéria
 interface ProgressoMateria {
@@ -154,14 +154,14 @@ const ProgressoMateriaCard = ({
   total?: number;
   completed?: number;
 }) => (
-  <div className="bg-gradient-to-br from-white via-indigo-50 to-indigo-100 rounded-2xl p-5 shadow-md hover:shadow-xl transition-shadow duration-200 border border-indigo-100 group">
+  <div className="bg-gradient-to-br from-white via-sky-50 to-cyan-50 rounded-2xl p-5 shadow-md hover:shadow-xl transition-shadow duration-200 border border-sky-100 group">
     <div className="flex justify-between items-center mb-2">
-      <span className="font-semibold text-gray-800 group-hover:text-indigo-700 transition-colors">{materia}</span>
-      <span className="text-base font-bold text-indigo-600 group-hover:text-indigo-800 transition-colors">
+      <span className="font-semibold text-gray-800 group-hover:text-sky-700 transition-colors">{materia}</span>
+      <span className="text-base font-bold text-sky-600 group-hover:text-blue-700 transition-colors">
         {percent}%
       </span>
     </div>
-    <Progress value={percent} className="h-2 bg-indigo-100" />
+    <Progress value={percent} className="h-2 bg-sky-100" />
     {completed !== undefined && total !== undefined && (
       <div className="mt-2 text-xs text-gray-500">
         {completed} de {total} lições concluídas
@@ -172,8 +172,8 @@ const ProgressoMateriaCard = ({
 
 // Item visual para mostrar uma conquista do usuário
 const AchievementItem = ({ achievement }: { achievement: Achievement }) => (
-  <li className="bg-gradient-to-r from-indigo-100 via-white to-purple-100 rounded-xl p-4 flex items-start gap-4 shadow hover:scale-[1.025] hover:shadow-lg transition-all duration-200">
-    <div className="bg-indigo-200 p-3 rounded-full shadow-inner flex items-center justify-center">
+  <li className="bg-gradient-to-r from-sky-100 via-white to-cyan-100 rounded-xl p-4 flex items-start gap-4 shadow hover:scale-[1.025] hover:shadow-lg transition-all duration-200">
+    <div className="bg-sky-200 p-3 rounded-full shadow-inner flex items-center justify-center">
       <span role="img" aria-label="Troféu" className="text-2xl">{achievement.icon || "🏆"}</span>
     </div>
     <div className="flex-1">
@@ -195,10 +195,10 @@ const AchievementItem = ({ achievement }: { achievement: Achievement }) => (
 const StatCard = ({ value, label, color }: {
   value: React.ReactNode;
   label: string;
-  color: 'indigo' | 'green' | 'yellow';
+  color: 'blue' | 'green' | 'yellow';
 }) => {
   const colors = {
-    indigo: { bg: 'from-indigo-500 via-indigo-400 to-purple-500', text: 'text-white' },
+    blue: { bg: 'from-sky-600 via-sky-500 to-blue-600', text: 'text-white' },
     green: { bg: 'from-emerald-500 via-emerald-400 to-green-500', text: 'text-white' },
     yellow: { bg: 'from-amber-400 via-yellow-300 to-yellow-500', text: 'text-white' },
   };
@@ -226,17 +226,17 @@ const ProgressSection = ({ loading, erro, materias }: {
     completed?: number;
   }>;
 }) => (
-  <section className="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-indigo-100">
+  <section className="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-sky-100">
     <div className="flex justify-between items-center mb-6">
-      <h2 className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Progresso por Matéria</h2>
-      <span className="text-sm text-indigo-600 font-medium cursor-pointer hover:underline">Ver todas</span>
+      <h2 className="text-2xl font-extrabold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent">Progresso por Matéria</h2>
+      <span className="text-sm text-sky-600 font-medium cursor-pointer hover:underline">Ver todas</span>
     </div>
     {loading ? (
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
           <div key={i} className="animate-pulse">
-            <div className="h-4 bg-indigo-100 rounded w-3/4 mb-2"></div>
-            <div className="h-2 bg-indigo-50 rounded-full"></div>
+            <div className="h-4 bg-sky-100 rounded w-3/4 mb-2"></div>
+            <div className="h-2 bg-sky-50 rounded-full"></div>
           </div>
         ))}
       </div>
@@ -265,19 +265,19 @@ const AchievementsSection = ({ achievements, loading }: {
   achievements: Achievement[];
   loading: boolean;
 }) => (
-  <section className="bg-white rounded-2xl shadow-sm p-6 border border-indigo-100">
+  <section className="bg-white rounded-2xl shadow-sm p-6 border border-sky-100">
     <div className="flex justify-between items-center mb-6">
-      <h2 className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Conquistas</h2>
-      <span className="text-sm text-indigo-600 font-medium cursor-pointer hover:underline">Ver todas</span>
+      <h2 className="text-2xl font-extrabold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent">Conquistas</h2>
+      <span className="text-sm text-sky-600 font-medium cursor-pointer hover:underline">Ver todas</span>
     </div>
     {loading ? (
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
           <div key={i} className="animate-pulse flex gap-3">
-            <div className="h-12 w-12 bg-indigo-100 rounded-full"></div>
+            <div className="h-12 w-12 bg-sky-100 rounded-full"></div>
             <div className="flex-1">
-              <div className="h-4 bg-indigo-100 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-indigo-50 rounded w-full"></div>
+              <div className="h-4 bg-sky-100 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-sky-50 rounded w-full"></div>
             </div>
           </div>
         ))}
@@ -300,13 +300,13 @@ const AchievementsSection = ({ achievements, loading }: {
 
 // Seção para mostrar metas semanais do plano de estudo
 const MetasSemanaSection = ({ metas }: { metas: string[] }) => (
-  <section className="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-indigo-100">
-    <h2 className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-6">Metas da Semana</h2>
+  <section className="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-sky-100">
+    <h2 className="text-2xl font-extrabold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent mb-6">Metas da Semana</h2>
     <ul className="space-y-3">
       {metas.map((meta, i) => (
         <li key={i} className="flex items-start gap-3">
-          <div className="bg-indigo-200 p-1 rounded-full mt-1">
-            <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
+          <div className="bg-sky-200 p-1 rounded-full mt-1">
+            <div className="w-2 h-2 bg-sky-600 rounded-full"></div>
           </div>
           <span className="text-gray-700">{meta}</span>
         </li>
@@ -601,13 +601,13 @@ const PainelPage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-5xl font-extrabold mb-2 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent drop-shadow-sm"
+            className="text-5xl font-extrabold mb-2 bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent drop-shadow-sm"
           >
             🚀 Meu Progresso
           </motion.h1>
           {curso && (
             <p className="text-lg text-gray-600">
-              Curso atual: <span className="font-semibold text-indigo-600">{curso}</span>
+              Curso atual: <span className="font-semibold text-sky-600">{curso}</span>
             </p>
           )}
         </header>
@@ -627,7 +627,7 @@ const PainelPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
-          <StatCard value={<><span className="mr-1">🏅</span>{xp}</>} label="XP Acumulado" color="indigo" />
+          <StatCard value={<><span className="mr-1">🏅</span>{xp}</>} label="XP Acumulado" color="blue" />
           <StatCard value={<><span className="mr-1">🔥</span>{streak}</>} label="Dias consecutivos" color="green" />
           <StatCard value={<><span className="mr-1">📈</span>{percentGeral}%</>} label="Progresso Geral" color="yellow" />
         </div>
@@ -641,9 +641,9 @@ const PainelPage: React.FC = () => {
                 initial={{ opacity: 0, scale: 0.97 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.4 }}
-                className="bg-gradient-to-br from-white via-indigo-50 to-purple-50 rounded-3xl shadow-xl p-10 mb-12 border border-indigo-100"
+                className="bg-gradient-to-br from-white via-sky-50 to-cyan-50 rounded-3xl shadow-xl p-10 mb-12 border border-sky-100"
               >
-                <h2 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-8 flex items-center gap-2">
+                <h2 className="text-3xl font-extrabold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent mb-8 flex items-center gap-2">
                   <span className="inline-block text-3xl">📊</span>
                   Cobertura por Matéria
                 </h2>
@@ -654,34 +654,27 @@ const PainelPage: React.FC = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="bg-white/90 rounded-xl p-5 shadow group hover:shadow-lg transition-all border border-indigo-100 flex flex-col gap-2"
+                      className="bg-white/90 rounded-xl p-5 shadow group hover:shadow-lg transition-all border border-sky-100 flex flex-col gap-2"
                     >
                       <div className="flex justify-between items-center mb-1">
-                        <span className="font-semibold text-gray-800 group-hover:text-indigo-700 transition-colors">
+                        <span className="font-semibold text-gray-800 group-hover:text-sky-700 transition-colors">
                           📚 {subject}
                         </span>
-                        <span className="text-lg font-bold text-indigo-600 group-hover:text-indigo-800 transition-colors">
+                        <span className="text-lg font-bold text-sky-600 group-hover:text-blue-700 transition-colors">
                           {Number(percent)}%
                         </span>
                       </div>
-                      <Progress value={Number(percent)} className="h-2 bg-indigo-100" />
+                      <Progress value={Number(percent)} className="h-2 bg-sky-100" />
                       <div className="mt-1 flex items-center gap-2">
                         <div
-                          className="w-3 h-3 rounded-full transition-colors duration-300"
-                          style={{
-                            background:
-                              Number(percent) >= 100
-                                ? "#22c55e"
-                                : Number(percent) >= 60
-                                ? "#facc15"
-                                : "#f87171",
-                            boxShadow:
-                              Number(percent) >= 100
-                                ? "0 0 0 2px #bbf7d0"
-                                : Number(percent) >= 60
-                                ? "0 0 0 2px #fef9c3"
-                                : "0 0 0 2px #fee2e2",
-                          }}
+                          className={[
+                            "w-3 h-3 rounded-full transition-all duration-300",
+                            Number(percent) >= 100
+                              ? "bg-green-500 ring-2 ring-green-200"
+                              : Number(percent) >= 60
+                              ? "bg-yellow-400 ring-2 ring-yellow-100"
+                              : "bg-red-400 ring-2 ring-red-200",
+                          ].join(" ")}
                         />
                         <span className="text-xs font-medium text-gray-600">
                           {Number(percent) >= 100
@@ -708,9 +701,9 @@ const PainelPage: React.FC = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="bg-white rounded-2xl shadow-sm p-8 mb-12 border border-indigo-100"
+          className="bg-white rounded-2xl shadow-sm p-8 mb-12 border border-sky-100"
         >
-          <h2 className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-6 flex items-center gap-2">
+          <h2 className="text-2xl font-extrabold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent mb-6 flex items-center gap-2">
             📅 Atividades Pendentes
           </h2>
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -721,7 +714,7 @@ const PainelPage: React.FC = () => {
               <select
                 id="materia-filter"
                 onChange={e => setMateriaFiltro(e.target.value)}
-                className="w-full border border-indigo-200 rounded-xl px-4 py-2 text-sm bg-indigo-50 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all shadow-sm hover:shadow-md"
+                className="w-full border border-sky-200 rounded-xl px-4 py-2 text-sm bg-sky-50 focus:ring-2 focus:ring-sky-500 focus:outline-none transition-all shadow-sm hover:shadow-md"
               >
                 <option value="">Todas as matérias</option>
                 {(plano?.coverage ? Object.keys(plano.coverage) : []).map(m => (
@@ -738,7 +731,7 @@ const PainelPage: React.FC = () => {
               <select
                 id="tipo-filter"
                 onChange={e => setTipoFiltro(e.target.value)}
-                className="w-full border border-indigo-200 rounded-xl px-4 py-2 text-sm bg-indigo-50 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all shadow-sm hover:shadow-md"
+                className="w-full border border-sky-200 rounded-xl px-4 py-2 text-sm bg-sky-50 focus:ring-2 focus:ring-sky-500 focus:outline-none transition-all shadow-sm hover:shadow-md"
               >
                 <option value="">Todos os tipos</option>
                 <option value="teoria">Teoria</option>
@@ -754,7 +747,7 @@ const PainelPage: React.FC = () => {
                 initial={{ opacity: 0, scale: 0.97 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3 }}
-                className="text-center py-10 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl"
+                className="text-center py-10 bg-gradient-to-r from-sky-50 to-cyan-50 rounded-xl"
               >
                 <div className="text-4xl mb-2">🎉</div>
                 <p className="text-lg text-gray-700 font-semibold">Nenhuma atividade pendente!</p>
@@ -767,14 +760,14 @@ const PainelPage: React.FC = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="p-5 bg-gradient-to-br from-white via-indigo-50 to-indigo-100 rounded-xl border border-indigo-100 flex justify-between items-center hover:bg-white hover:shadow-lg transition-all duration-200"
+                  className="p-5 bg-gradient-to-br from-white via-sky-50 to-cyan-50 rounded-xl border border-sky-100 flex justify-between items-center hover:bg-white hover:shadow-lg transition-all duration-200"
                 >
                   <div>
                     <p className="font-medium text-gray-800">
-                      <span className="text-indigo-600">📚 {atividade.subject}</span> - {atividade.topic}
+                      <span className="text-sky-600">📚 {atividade.subject}</span> - {atividade.topic}
                     </p>
                     <div className="flex gap-3 mt-1">
-                      <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full capitalize">
+                      <span className="text-xs px-2 py-1 bg-sky-100 text-sky-800 rounded-full capitalize">
                         {atividade.activity_type}
                       </span>
                       <span className="text-xs text-gray-500">
@@ -814,7 +807,7 @@ const PainelPage: React.FC = () => {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      className="text-xs px-3 py-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded transition"
+                      className="text-xs px-3 py-1 bg-sky-600 hover:bg-blue-600 text-white rounded transition"
                       onClick={() => {
                         alert("Função de agendar revisão ainda não implementada.");
                       }}

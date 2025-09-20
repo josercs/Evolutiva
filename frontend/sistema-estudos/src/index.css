@@ -6,7 +6,18 @@
 
 @layer base {
   :root {
+    --navbar-h: 64px; /* matches h-16 */
+    --navbar-gap: 8px; /* extra breathing room */
     --radius: 0.5rem;
+
+  /* Premium brand palette tokens */
+  --brand-50:#eef7ff; --brand-100:#dbefff; --brand-200:#bfe0ff;
+  --brand-300:#93c5fd; --brand-400:#4CA3FF; --brand-500:#1C7BFF;
+  --brand-600:#0A66FF; --brand-700:#1d4ed8; --brand-800:#1e40af;
+  --teal-600:#00A9B8; --teal-500:#17B6C5; /* secondary accent */
+  --accent-500:#06b6d4; /* legacy cyan */
+  --success-500:#22c55e; --warning-500:#f59e0b; --danger-500:#ef4444;
+  --bg:#f7fafc; --card:#ffffff; --line:rgba(15,23,42,.08);
 
     /* Paleta otimizada para estudantes Gen Z/Alpha */
     --color-primary: 59 130 246;    /* Azul Vibrante (#3B82F6) */
@@ -26,7 +37,11 @@
     --sidebar-border: 220 10% 85%;
     --sidebar-ring: 217.2 91.2% 65%;
 
-    --animation-duration-slow: 1.5s;
+  --surface:#F7FAFD; --panel:#FFFFFF; --panel-weak:#F1F6FC;
+  --text-strong:#0B1B2B; --text:#2B3C55; --text-dim:#6B7A90;
+  --border:#E6EEF8; --shadow:0 8px 28px rgba(20,40,80,.08);
+
+  --animation-duration-slow: 1.5s;
     --animation-duration-medium: 0.75s;
     --animation-duration-fast: 0.3s;
     --progress-animation-duration: 0.5s;
@@ -44,18 +59,96 @@
     --animation-duration-slow: 1s;
   }
 
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    src: url('https://fonts.gstatic.com/s/inter/v3/UcCO4F8a0b1k5d2e4f7g.woff2') format('woff2');
+  }
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--surface);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+  }
+  .math-content {
+    font-family: 'Inter', sans-serif;
+    color: #1f2937;
+  }
+  
+  .math-content .progress-container {
+    width: 100%;
+    background-color: #e5e7eb;
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+  }
+  
+  .math-content .progress-bar {
+    height: 0.5rem;
+    background-color: #3b82f6;
+    border-radius: 0.25rem;
+    transition: width 0.5s ease;
+  }
+  
+  .math-content .progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    color: #4b5563;
+  }
+
+  .math-content .interactive-diagram polygon,
+  .math-content .interactive-diagram circle,
+  .math-content .interactive-diagram path {
+    transition: all 0.3s ease;
+  }
+
+  .math-content .interactive-diagram polygon:hover,
+  .math-content .interactive-diagram circle:hover {
+    fill: #3b82f6;
+    cursor: pointer;
+  }
+
+  .math-content .drag-drop-item {
+    transition: transform 0.2s;
+  }
+
+  .math-content .drag-drop-item:hover {
+    transform: scale(1.05);
+    cursor: grab;
+  }
+
+  .math-content .drag-drop-item:active {
+    cursor: grabbing;
+  }
+
+  .math-content .dropzone.highlight {
+    background-color: #EDE9FE;
+  }
+
+  .math-content .quiz-option.selected-correct {
+    background-color: #D1FAE5;
+    border-color: #10B981;
+  }
+
+  .math-content .quiz-option.selected-incorrect {
+    background-color: #FEE2E2;
+    border-color: #EF4444;
+  }
   /* Fonte ideal para leitura jovem */
   html {
     font-family: 'Inter', 'Nunito Sans', 'Roboto', Arial, sans-serif;
-    font-size: 18px;
+    font-size: 16px;
     line-height: 1.7;
-    letter-spacing: 0.01em;
+    letter-spacing: -0.01em;
     scroll-behavior: smooth;
   }
 
   body {
-    background-color: rgb(var(--color-bg));
-    color: #22223b;
+    background-color: var(--surface);
+    color: var(--text);
     font-family: inherit;
     font-size: 1rem;
     min-height: 100vh;
@@ -65,7 +158,7 @@
     font-family: 'Inter', 'Nunito Sans', 'Roboto', Arial, sans-serif;
     font-weight: 700;
     letter-spacing: -0.01em;
-    color: #1e293b;
+    color: var(--text-strong);
     margin-bottom: 0.5em;
   }
 
@@ -83,24 +176,21 @@
   }
 
   /* Parágrafos e listas mais legíveis */
-  p, ul, ol {
-    font-size: 1.05rem;
-    margin-bottom: 1em;
-    color: #22223b;
-  }
+  p, ul, ol { font-size: 1.05rem; margin-bottom: 1em; color: var(--text); }
 
   /* Links destacados */
-  a {
-    color: #3b82f6;
-    font-weight: 600;
-    text-decoration: underline;
-    transition: color 0.2s;
-  }
-  a:hover {
-    color: #64f65c;
-    text-decoration: underline wavy;
-  }
+  a { color: var(--brand-600); font-weight: 600; text-decoration: underline; transition: color .2s; }
+  a:hover { color: var(--brand-500); text-decoration: underline; }
 }
+.app-gradient { background: linear-gradient(90deg, var(--brand-500), var(--teal-500)); }
+.card { background: var(--panel); border:1px solid var(--border); border-radius:24px; box-shadow: var(--shadow); overflow: hidden; }
+.card-head { height:64px; background:linear-gradient(90deg, rgba(76,163,255,.15), rgba(23,182,197,.15)); border-top-left-radius:24px; border-top-right-radius:24px; }
+.btn-primary{ background:linear-gradient(90deg, var(--brand-600), var(--brand-400)); color:#fff; border-radius:999px; padding:.75rem 1.25rem; font-weight:700; box-shadow:0 6px 18px rgba(10,102,255,.18); display:inline-flex; align-items:center; justify-content:center; gap:.5rem; }
+.btn-primary:hover{ filter:brightness(1.05); transform:translateY(-1px); }
+.chip{ background:var(--panel-weak); border:1px solid var(--border); color:var(--text); border-radius:999px; padding:.35rem .7rem; font-weight:600; min-height:44px; display:inline-flex; align-items:center; }
+.chip--active{ background:rgba(12,92,255,.10); border-color:var(--brand-400); color:var(--brand-600); }
+.section-title{ color:var(--text-strong); letter-spacing:-.01em; }
+.shadow-premium{ box-shadow: var(--shadow); }
 
 /* Animations Turbo */
 @layer utilities {
@@ -174,6 +264,22 @@
     background-size: 40px 40px;
     animation: loading-stripes 0.5s linear infinite;
   }
+
+  /* legacy utility (kept for reference) */
+  .with-sidebar { padding-left: 0; }
+  @media (min-width: 1024px){ .with-sidebar { padding-left: 256px; } }
+  @media (min-width: 1280px){ .with-sidebar { padding-left: 280px; } }
+  @media (min-width: 1536px){ .with-sidebar { padding-left: 320px; } }
+  .pt-navbar {
+    padding-top: calc(var(--navbar-h) + var(--navbar-gap));
+  }
+  /* New: margin-left utility aligned to actual Sidebar widths */
+  .ml-sidebar {
+    margin-left: 0;
+  }
+  @media (min-width: 1024px) { /* lg+ uses CSS var for width */
+    .ml-sidebar { margin-left: var(--sidebar-w); }
+  }
 }
 
 /* Animacao XP float */
@@ -203,6 +309,23 @@
   font-weight: bold;
   color: #facc15; /* amarelo */
   text-shadow: 0 2px 8px #0002;
+}
+
+/* Empurra levemente o conteúdo quando o sidebar móvel estiver aberto */
+@media (max-width: 767px) {
+  body[data-sidebar-mobile="open"] .with-sidebar {
+    transform: translateX(224px);
+    transition: transform 200ms ease;
+  }
+  body[data-sidebar-mobile="open"] .ml-sidebar {
+    transform: translateX(224px);
+    transition: transform 200ms ease;
+  }
+}
+
+/* Sticky offset equal to navbar height */
+.top-navbar {
+  top: var(--navbar-h);
 }
 
 /* Exemplo para o container principal (em seu CSS global) */
@@ -244,8 +367,8 @@
     #facc15 324deg,   /* Amarelo Energético */
     #3b82f6 360deg    /* Azul Vibrante (fechando ciclo) */
   );
-  mask-image: radial-gradient(circle, transparent 65%, black 67%);
   -webkit-mask-image: radial-gradient(circle, transparent 65%, black 67%);
+  mask-image: radial-gradient(circle, transparent 65%, black 67%);
   animation: turbo-spin var(--animation-duration-medium) linear infinite;
   will-change: transform;
   opacity: 0.92;
@@ -301,9 +424,57 @@
   background: #1d4ed8; /* azul-700 mais escuro */
 }
 
-/* Firefox */
-.sidebar-scrollable {
-  scrollbar-width: thin;
-  scrollbar-color: #2563eb #1e40af;
+/* Firefox-only scrollbar styling (ignored by WebKit/Blink). Safe to keep but may warn in some linters. */
+/* .sidebar-scrollable { scrollbar-width: thin; scrollbar-color: #2563eb #1e40af; } */
+
+:root{
+  --sidebar-w: 220px;         /* lg */
 }
+@media (min-width: 1280px){ :root{ --sidebar-w: 232px; } }  /* xl */
+@media (min-width: 1536px){ :root{ --sidebar-w: 248px; } }  /* 2xl */
+
+/* quando o sidebar estiver colapsado, troque esse data-attr no body */
+body[data-sidebar="collapsed"]{
+  --sidebar-w: 80px;
+}
+
+/* filepath: d:\Projetos\sistema_estudos_core\frontend\sistema-estudos\src\index.css */
+
+/* Tipografia base (Inter). Use a classe .font-brand quando quiser Poppins */
+html { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+
+/* Brand font utility (Poppins) */
+.font-brand { font-family: 'Poppins', Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+
+/* Movimento reduzido: desativa a “levitação” dos cards */
+@media (prefers-reduced-motion: reduce) {
+  .hover\:-translate-y-0\.5 { transform: none !important; }
+}
+
+/* CTA primário padrão (reutilizável) */
+.btn-cta {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: .625rem 1.25rem; border-radius: 9999px; color: #fff; font-weight: 600; font-size: .875rem;
+  box-shadow: 0 4px 12px -6px rgba(0,0,0,.35); transition: box-shadow .2s, transform .2s;
+  outline: none;
+  background: var(--brand-600);
+}
+.btn-cta:hover { background: var(--brand-700); }
+.btn-cta:focus-visible{ box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
+.btn-cta:active{ transform: scale(.98); }
+
+/* Premium chip scroll mask */
+.chip-scroll{
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
+}
+
+/* Navbar gradient background utility */
+.navbar-gradient{
+  background: linear-gradient(90deg, var(--brand-600) 0%, var(--brand-500) 50%, var(--accent-500) 100%);
+}
+
+/* Badge neutra já usada nos cards */
+.badge-neutral { font-size: 11px; padding: 2px 8px; border-radius: 9999px; background: rgba(2,6,23,.05); color: #475569; }
+
 

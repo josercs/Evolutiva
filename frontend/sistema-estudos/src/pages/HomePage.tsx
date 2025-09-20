@@ -103,7 +103,7 @@ const HomePage: React.FC = () => {
   // Se não estiver logado, mostra tela de boas-vindas
   if (!user?.email) {
     return (
-      <div className="min-h-screen w-full flex flex-col bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900 text-white p-5 pt-0">
+  <div className="ml-sidebar pt-20 min-h-screen w-full flex flex-col bg-gradient-to-br from-blue-900 via-blue-800 to-cyan-900 text-white p-5">
         {/* Cabeçalho da página */}
         <header className="w-full max-w-4xl mx-auto flex flex-col items-center gap-2 px-1 sm:px-10 py-1">
           <span className="flex items-center justify-center rounded-full shadow-lg bg-gradient-to-br from-cyan-400 to-blue-500 mb-1 w-14 h-14">
@@ -215,7 +215,7 @@ const HomePage: React.FC = () => {
 
   // Usuário logado: dashboard centralizado
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'}`}>
+  <div className={`ml-sidebar pt-20 min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'}`}>
       {showConfetti && (
         <Confetti
           width={windowSize.width}
