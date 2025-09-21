@@ -1,515 +1,102 @@
-import os
-import re
-import json
-import logging
-import time
-import requests
-import sys
-import threading
-from dotenv import load_dotenv
+import os, re, json, time, threading, requests, logging
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, request, send_from_directory
-from flask_cors import CORS
-from sqlalchemy import text, select
-from flask_login import LoginManager, login_required, current_user
+from flask import jsonify, request, send_from_directory
 from werkzeug.utils import secure_filename
-
-# Optional rate limiter (safe no-op fallback)
+from sqlalchemy import text
 try:
-    from flask_limiter import Limiter  # type: ignore
-    from flask_limiter.util import get_remote_address  # type: ignore
-except Exception:  # pragma: no cover
-    Limiter = None  # type: ignore
-    def get_remote_address():  # type: ignore
-        return None
+    from flask_login import current_user, login_required  # type: ignore
+except Exception:  # fallback se flask_login não instalado
+    def login_required(f):  # type: ignore
+        return f
+    class _Anon:
+        is_authenticated = False
+    current_user = _Anon()  # type: ignore
+from models.models import db, SubjectContent, HorariosEscolares, PlanoEstudo, User, YouTubeCache, Curso
+from routes.auth_routes import login as auth_login  # type: ignore
+from app_factory import create_app
 
-# Local models
-from models.models import (
-    db,
-    HorariosEscolares,
-    PlanoEstudo,
-    User,
-    ProgressoMateria,
-    SubjectContent,
-    CompletedContent,
-    YouTubeCache,
-    CursoMateria,
-    Curso,
-    WeeklyQuiz,
-)
-
-# Ensure local paths are on sys.path before local imports
-CURRENT_DIR = os.path.dirname(__file__)
-if CURRENT_DIR not in sys.path:
-    sys.path.insert(0, CURRENT_DIR)
-PARENT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, '..'))
-if PARENT_DIR not in sys.path:
-    sys.path.insert(0, PARENT_DIR)
-
-# Load .env from backend/src explicitly (fallback to default env loading)
-try:
-    load_dotenv(os.path.join(CURRENT_DIR, '.env'))
-except Exception:
-    load_dotenv()
-
-# Configure logging level based on environment early
-_log_level = os.getenv('LOG_LEVEL') or ('DEBUG' if os.getenv('FLASK_ENV','development') != 'production' else 'INFO')
-logging.basicConfig(level=getattr(logging, _log_level.upper(), logging.INFO))
-
-# Simple in-memory cache for YouTube queries (TTL in seconds)
-_YT_CACHE: dict[str, tuple[float, list[dict]]] = {}
-_YT_CACHE_TTL = 600
-_YT_CACHE_MAX_ROWS = 2000
-try:
-    _YT_CACHE_TTL = int(os.getenv('YT_CACHE_TTL', str(_YT_CACHE_TTL)))
-    _YT_CACHE_MAX_ROWS = int(os.getenv('YT_CACHE_MAX_ROWS', str(_YT_CACHE_MAX_ROWS)))
-except Exception:
-    pass
-
-GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
-GEMINI_MODEL = os.getenv("GOOGLE_DEFAULT_MODEL", "models/gemini-1.5-flash-latest")
+app = create_app()
+limiter = getattr(app, 'limiter', None)
+_lmts_burst = getattr(app, 'limits_burst', '10 per minute')
+YT_API_KEY = os.getenv('YT_API_KEY')
+GEMINI_API_KEY = os.getenv('GOOGLE_API_KEY')
+GEMINI_MODEL = os.getenv('GOOGLE_DEFAULT_MODEL', 'models/gemini-1.5-flash-latest')
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 
-# Resolve pasta de uploads do repositório (preferir raiz do projeto)
+    # Upload folder resolution
 _CDIR = os.path.dirname(__file__)
 _BACKEND_DIR = os.path.abspath(os.path.join(_CDIR, '..'))
 _ROOT_DIR = os.path.abspath(os.path.join(_CDIR, '..', '..'))
-_CANDIDATES = [
-    os.path.join(_ROOT_DIR, 'uploads'),   # repo root/uploads
-    os.path.join(_BACKEND_DIR, 'uploads') # backend/uploads (fallback)
-]
+_CANDIDATES = [os.path.join(_ROOT_DIR, 'uploads'), os.path.join(_BACKEND_DIR, 'uploads')]
 UPLOAD_FOLDER = next((p for p in _CANDIDATES if os.path.isdir(p)), _CANDIDATES[0])
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-app = Flask(__name__)
-# Use SECRET_KEY from environment with fallback
-app.secret_key = os.getenv('SECRET_KEY') or os.getenv('FLASK_SECRET_KEY') or 'dev-secret-change-me'
-# Ajustes de sessão
-same_site_env = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
-secure_env = os.getenv('SESSION_COOKIE_SECURE', 'false').lower() in {'1', 'true', 'yes'}
-app.config.update(
-    SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE=same_site_env,
-    SESSION_COOKIE_SECURE=secure_env,
-)
-# If SameSite=None then cookie must be Secure; em dev sem https mantenha Lax
-if same_site_env.lower() == 'none' and not secure_env:
-    logging.warning('SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true; forcing SECURE true')
-    app.config.update(SESSION_COOKIE_SECURE=True)
-
-# Config padrão do SQLAlchemy a partir de variáveis de ambiente
-try:
-    # Optional SQLite fallback for local dev
-    use_sqlite = os.getenv('USE_SQLITE', 'false').lower() in {'1', 'true', 'yes'}
-
-    if use_sqlite:
-        app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-            'SQLALCHEMY_DATABASE_URI',
-            f"sqlite:///{os.path.join(CURRENT_DIR, 'dev.db')}"
-        )
-        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    else:
-        db_user = os.getenv('DB_USERNAME', 'postgres')
-        db_pass = os.getenv('DB_PASSWORD', '1234')
-        db_host = os.getenv('DB_HOST', 'localhost')
-        db_port = os.getenv('DB_PORT', '5432')
-        db_name = os.getenv('DB_NAME', 'sistema_estudos')
-        app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-            'SQLALCHEMY_DATABASE_URI',
-            f'postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}'
-        )
-        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-        db.init_app(app)
-
-        # Optionally create tables at startup (dev convenience)
-        auto_ddl = os.getenv('AUTO_DDL_ON_START', '1').lower() in {'1','true','yes','on'}
-        if auto_ddl:
-            with app.app_context():
-                try:
-                    db.create_all()
-                except Exception as ce:
-                    logging.warning(f"Falha ao criar tabelas: {ce}")
-
-                # 2) Migração leve (users)
-                try:
-                    db.session.execute(text("ALTER TABLE users ALTER COLUMN ritmo TYPE varchar(16);"))
-                    db.session.execute(text("ALTER TABLE users ALTER COLUMN estilo_aprendizagem TYPE varchar(32);"))
-                    db.session.execute(text("ALTER TABLE users ALTER COLUMN escolaridade TYPE varchar(64);"))
-                    db.session.execute(text("""
-                        DO $$
-                        BEGIN
-                            IF EXISTS (
-                                SELECT 1 FROM information_schema.columns
-                                WHERE table_name='users' AND column_name='horario_inicio'
-                                    AND data_type IN ('character varying','text')
-                            ) THEN
-                                ALTER TABLE users
-                                ALTER COLUMN horario_inicio TYPE time USING NULLIF(horario_inicio, '')::time;
-                            END IF;
-                        END $$;
-                    """))
-                    db.session.execute(text("""
-                        DO $$
-                        BEGIN
-                            IF EXISTS (
-                                SELECT 1 FROM information_schema.columns
-                                WHERE table_name='users' AND column_name='dias_disponiveis'
-                            ) THEN
-                                BEGIN
-                                    ALTER TABLE users
-                                    ALTER COLUMN dias_disponiveis TYPE text[] USING
-                                        CASE
-                                            WHEN dias_disponiveis IS NULL THEN NULL
-                                            WHEN pg_typeof(dias_disponiveis)::text = 'json' THEN
-                                                (SELECT ARRAY(SELECT json_array_elements_text(dias_disponiveis)))
-                                            ELSE dias_disponiveis::text[]
-                                        END;
-                                EXCEPTION WHEN others THEN
-                                    NULL;
-                                END;
-                            END IF;
-                        END $$;
-                    """))
-                    db.session.commit()
-                except Exception as me:
-                    logging.warning(f"Migração leve (users) falhou: {me}")
-                    db.session.rollback()
-
-                # 3) Migração leve (weekly_quizzes)
-                try:
-                    db.session.execute(text("""
-                        DO $$
-                        BEGIN
-                            IF NOT EXISTS (
-                                SELECT 1 FROM information_schema.columns
-                                WHERE table_name='weekly_quizzes' AND column_name='week_start'
-                            ) THEN
-                                ALTER TABLE weekly_quizzes ADD COLUMN week_start date;
-                                UPDATE weekly_quizzes
-                                    SET week_start = DATE_TRUNC('week', COALESCE(created_at, NOW()))::date;
-                                ALTER TABLE weekly_quizzes ALTER COLUMN week_start SET NOT NULL;
-                            END IF;
-                        END $$;
-                        """))
-                    db.session.execute(text("""
-                        DO $$
-                        BEGIN
-                            IF NOT EXISTS (
-                                SELECT 1 FROM information_schema.columns
-                                WHERE table_name='weekly_quizzes' AND column_name='status'
-                            ) THEN
-                                ALTER TABLE weekly_quizzes ADD COLUMN status varchar(16) NOT NULL DEFAULT 'ready';
-                            END IF;
-                        END $$;
-                        """))
-                    db.session.execute(text("""
-                        DO $$
-                        BEGIN
-                            IF NOT EXISTS (
-                                SELECT 1 FROM information_schema.columns
-                                WHERE table_name='weekly_quizzes' AND column_name='version'
-                            ) THEN
-                                ALTER TABLE weekly_quizzes ADD COLUMN version integer NOT NULL DEFAULT 1;
-                            END IF;
-                        END $$;
-                        """))
-                    db.session.execute(text("""
-                        DO $$
-                        BEGIN
-                            IF NOT EXISTS (
-                                SELECT 1 FROM information_schema.columns
-                                WHERE table_name='weekly_quizzes' AND column_name='data'
-                            ) THEN
-                                ALTER TABLE weekly_quizzes ADD COLUMN data jsonb NOT NULL DEFAULT '[]'::jsonb;
-                            END IF;
-                        END $$;
-                        """))
-                    db.session.execute(text("""
-                        DO $$
-                        BEGIN
-                            IF NOT EXISTS (
-                                SELECT 1 FROM pg_constraint WHERE conname = 'uq_weekly_quiz_user_week'
-                            ) THEN
-                                ALTER TABLE weekly_quizzes ADD CONSTRAINT uq_weekly_quiz_user_week UNIQUE (user_id, week_start);
-                            END IF;
-                        END $$;
-                        """))
-                    db.session.execute(text("""
-                        DO $$
-                        BEGIN
-                            IF NOT EXISTS (
-                                SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='ix_weekly_quizzes_user_id'
-                            ) THEN
-                                CREATE INDEX ix_weekly_quizzes_user_id ON weekly_quizzes(user_id);
-                            END IF;
-                            IF NOT EXISTS (
-                                SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='ix_weekly_quizzes_week_start'
-                            ) THEN
-                                CREATE INDEX ix_weekly_quizzes_week_start ON weekly_quizzes(week_start);
-                            END IF;
-                            IF NOT EXISTS (
-                                SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='ix_weekly_quizzes_status'
-                            ) THEN
-                                CREATE INDEX ix_weekly_quizzes_status ON weekly_quizzes(status);
-                            END IF;
-                        END $$;
-                        """))
-                    db.session.commit()
-                except Exception as wqe:
-                    logging.warning(f"Migração leve (weekly_quizzes) falhou: {wqe}")
-                    db.session.rollback()
-
-        # Dev seed: populate minimal data if empty so frontend can render
-        try:
-            dev_seed = os.getenv('DEV_AUTOCREATE_DATA')
-            use_dev = (dev_seed or '').lower() in {'1','true','yes'} or (os.getenv('USE_SQLITE','false').lower() in {'1','true','yes'})
-            if use_dev:
-                curso = Curso.query.first()
-                if not curso:
-                    curso = Curso(nome='Curso Teste')
-                    db.session.add(curso)
-                    db.session.commit()
-                # Seed materias if missing
-                materias_nomes = ['Matemática', 'Português', 'História']
-                materias = []
-                for nome in materias_nomes:
-                    m = HorariosEscolares.query.filter_by(materia=nome).first()
-                    if not m:
-                        m = HorariosEscolares(materia=nome, horario='')
-                        db.session.add(m)
-                        db.session.commit()
-                    materias.append(m)
-                    # Ensure link CursoMateria
-                    if not CursoMateria.query.filter_by(curso_id=curso.id, materia_id=m.id).first():
-                        db.session.add(CursoMateria(curso_id=curso.id, materia_id=m.id))
-                        db.session.commit()
-                # Seed SubjectContent per materia
-                for m in materias:
-                    existing = SubjectContent.query.filter_by(materia_id=m.id).count()
-                    if existing < 3:
-                        for i in range(1, 4):
-                            sc = SubjectContent(
-                                subject=m.materia,
-                                topic=f'Tópico {i} de {m.materia}',
-                                content_html=f'<h1>{m.materia} - Tópico {i}</h1><p>Conteúdo de teste.</p>',
-                                created_at=db.func.now(),
-                                materia_id=m.id,
-                                curso_id=curso.id,
-                            )
-                            db.session.add(sc)
-                        db.session.commit()
-        except Exception as se:
-            logging.warning(f"Falha ao popular dados de desenvolvimento: {se}")
-
-    # Basic log about which DB is in use (mask password)
-    try:
-        uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-        safe_uri = re.sub(r':[^@]+@', ':***@', uri) if isinstance(uri, str) else uri
-        logging.info(f"DB conectado em: {safe_uri}")
-    except Exception:
-        pass
-except Exception:
-    pass
-
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Allow configurable CORS origins from env FRONTEND_ORIGINS (comma-separated)
-_frontend_origins = os.getenv('FRONTEND_ORIGINS')
-if _frontend_origins:
-    origins = [o.strip() for o in _frontend_origins.split(',') if o.strip()]
-else:
-    origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:5174",
-    # LAN defaults commonly used in local networks
-    "http://192.168.0.100:5173",
-    "http://192.168.0.100:5174",
-        "http://192.168.0.106:5173",
-        "http://192.168.0.109:5173",
-        "http://192.168.0.107:5173",
-    ]
-CORS(
-    app,
-    supports_credentials=True,
-    resources={r"/*": {"origins": origins}},
-    allow_headers=[
-        "Content-Type",
-        "X-Requested-With",
-        "Authorization",
-        "If-None-Match",
-        "If-Modified-Since",
-    ],
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    expose_headers=["Set-Cookie", "ETag"],
-)
+    # Cache YouTube (usa variáveis definidas na factory se quiser evoluir)
+_YT_CACHE: dict[str, tuple[float, list[dict]]] = {}
+_YT_CACHE_TTL = int(os.getenv('YT_CACHE_TTL', '600'))
+_YT_CACHE_MAX_ROWS = int(os.getenv('YT_CACHE_MAX_ROWS', '2000'))
 
-# Rate limiting configuration (env-driven)
-_lmts_default = os.getenv('YT_RATE_LIMIT', '60 per hour')
-_lmts_burst = os.getenv('YT_RATE_BURST', '10 per minute')
-if 'Limiter' in globals() and Limiter is not None:
-    limiter = Limiter(get_remote_address, app=app, default_limits=[_lmts_default])
-else:
-    class _NoopLimiter:
-        def limit(self, *args, **kwargs):
-            def _decorator(f):
-                return f
-            return _decorator
-    limiter = _NoopLimiter()
-
-YT_API_KEY = os.getenv("YT_API_KEY")
-# sanitize quoted env values
-if isinstance(YT_API_KEY, str):
-    YT_API_KEY = YT_API_KEY.strip().strip('"').strip("'")
-
-login_manager = LoginManager()
-login_manager.init_app(app)
-
-# Register blueprints
-from routes.auth_routes import auth_bp
-from routes.auth_routes import login as auth_login  # type: ignore
-from routes.user_routes import user_bp, users_bp
-from routes.agendas import agendas_bp
-from routes.habitos import habitos_bp
-from routes.content_routes import content_bp
-from routes.progress_routes import progress_bp
-from routes.course_routes import course_bp
-from routes.onboarding_routes import onboarding_bp
-from routes.quiz_gen_routes import bp_quiz_gen
-from routes.quiz_gen_routes import (
-    generate_weekly_quiz,
-    fetch_weekly_contents_for_user,
-    get_week_start_date,
-)
-from routes import v1_bp
-
-try:
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(user_bp)
-    app.register_blueprint(users_bp)
-    app.register_blueprint(agendas_bp)
-    app.register_blueprint(habitos_bp)
-    app.register_blueprint(content_bp)
-    app.register_blueprint(progress_bp)
-    app.register_blueprint(course_bp)
-    app.register_blueprint(onboarding_bp)
-    app.register_blueprint(bp_quiz_gen)
-    app.register_blueprint(v1_bp)
-
-    # Optional AI blueprints (skip if deps missing)
+def _prune_youtube_cache(max_rows: int = _YT_CACHE_MAX_ROWS):
     try:
-        from routes.ia_quiz import bp_quiz  # type: ignore
-        app.register_blueprint(bp_quiz)
-    except Exception as _ai_ex:
-        logging.warning(f"IA quiz desabilitado: {_ai_ex}")
-    try:
-        from routes.ia_sugestao import bp_ia_sugestao  # type: ignore
-        app.register_blueprint(bp_ia_sugestao)
-    except Exception as _ai2_ex:
-        logging.warning(f"IA sugestao desabilitado: {_ai2_ex}")
-except Exception as _bp_ex:
-    logging.warning(f"Falha ao registrar blueprints: {_bp_ex}")
-
-# ---- Lightweight weekly scheduler (optional) ----
-_scheduler_started = False
-_scheduler_timer: threading.Timer | None = None
-def _seconds_until_next_sunday_3am(now: datetime | None = None) -> int:
-    now = now or datetime.now()
-    # calculate next Sunday 03:00 from current time
-    days_ahead = (6 - now.weekday()) % 7  # Sunday=6
-    target = (now + timedelta(days=days_ahead)).replace(hour=3, minute=0, second=0, microsecond=0)
-    if target <= now:
-        target = target + timedelta(days=7)
-    delta = (target - now).total_seconds()
-    return int(delta)
-
-def _weekly_quiz_job():
-    try:
-        with app.app_context():
-            # Find active users (fallback: all users)
-            try:
-                users = db.session.query(User).all()
-            except Exception:
-                users = []
-            week_start = get_week_start_date()
-            count = 0
-            for u in users:
-                try:
-                    contents = fetch_weekly_contents_for_user(u.id)
-                    if len(contents) < 2:
-                        continue
-                    quiz = generate_weekly_quiz(contents, per_content=5)
-                    # upsert into WeeklyQuiz
-                    from models.models import WeeklyQuiz  # local import to avoid cycle
-                    record = (
-                        db.session.query(WeeklyQuiz)
-                        .filter(WeeklyQuiz.user_id == u.id, WeeklyQuiz.week_start == week_start)
-                        .first()
-                    )
-                    if record:
-                        record.data = quiz
-                        record.status = 'ready'
-                        record.version = (record.version or 1)
-                    else:
-                        record = WeeklyQuiz(user_id=u.id, week_start=week_start, status='ready', version=1, data=quiz)
-                        db.session.add(record)
-                    count += 1
-                except Exception as ie:
-                    logging.warning(f"Quiz weekly falhou para user {getattr(u,'id',None)}: {ie}")
-            try:
+        total = db.session.query(YouTubeCache.id).count()
+        excess = max(0, total - int(max_rows))
+        if excess > 0:
+            ids = [rid for (rid,) in db.session.query(YouTubeCache.id)
+                   .order_by(YouTubeCache.created_at.asc())
+                   .limit(excess)
+                   .all()]
+            if ids:
+                db.session.query(YouTubeCache).filter(YouTubeCache.id.in_(ids)).delete(synchronize_session=False)
                 db.session.commit()
-            except Exception as ce:
-                logging.warning(f"Falha ao commit quizzes semanais: {ce}")
-            logging.info(f"Weekly quiz job complete; processed {count} users")
-    finally:
-        # schedule next run
-        delay = _seconds_until_next_sunday_3am()
-        try:
-            t = threading.Timer(delay, _weekly_quiz_job)
-            t.daemon = True
-            t.start()
-            global _scheduler_timer
-            _scheduler_timer = t
-        except Exception as _t_ex:
-            logging.warning(f"Failed to schedule next weekly quiz run: {_t_ex}")
-
-def _start_weekly_quiz_scheduler():
-    global _scheduler_started, _scheduler_timer
-    if _scheduler_started:
-        return
-    if os.getenv('ENABLE_WEEKLY_QUIZ_CRON', 'true').lower() not in {'1','true','yes'}:
-        return
-    # Start only in the reloader's main process to avoid duplicates on Windows
-    if os.environ.get('WERKZEUG_RUN_MAIN') not in {'true', 'True', '1'} and os.environ.get('FLASK_RUN_FROM_CLI'):
-        # If running via flask CLI with reloader parent, wait for child
-        return
-    try:
-        delay = _seconds_until_next_sunday_3am()
-        t = threading.Timer(delay, _weekly_quiz_job)
-        t.daemon = True
-        t.start()
-        _scheduler_timer = t
-        _scheduler_started = True
-        logging.info("Weekly quiz scheduler enabled")
-    except Exception as e:
-        logging.warning(f"Failed to start weekly quiz scheduler: {e}")
-
-_start_weekly_quiz_scheduler()
-
-# Garante JSON 401 para acessos sem autenticação
-@login_manager.unauthorized_handler
-def _unauthorized():
-    return jsonify({"error": "Unauthorized"}), 401
-
-# Carregador de usuário para Flask-Login
-@login_manager.user_loader
-def load_user(user_id):
-    try:
-        return db.session.get(User, int(user_id))
     except Exception:
-        return None
+        db.session.rollback()
+
+def _refresh_yt_cache_async(query: str, max_results: int):
+    try:
+        api_key = os.getenv('YT_API_KEY') or YT_API_KEY
+        if not api_key or not query:
+            return
+        resp = requests.get(
+            'https://www.googleapis.com/youtube/v3/search',
+            params={
+                'key': api_key,
+                'part': 'snippet',
+                'type': 'video',
+                'q': query,
+                'maxResults': max_results,
+                'safeSearch': 'moderate'
+            }, timeout=4
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        items = data.get('items', [])
+        videos = []
+        for it in items:
+            vid = (it.get('id') or {}).get('videoId')
+            sn = (it.get('snippet') or {})
+            if not vid:
+                continue
+            videos.append({
+                'id': vid,
+                'title': sn.get('title'),
+                'channelTitle': sn.get('channelTitle'),
+                'thumbnail': ((sn.get('thumbnails') or {}).get('medium') or {}).get('url')
+                    or ((sn.get('thumbnails') or {}).get('default') or {}).get('url')
+            })
+        now = time.time()
+        cache_key = f"{query}|{max_results}"
+        _YT_CACHE[cache_key] = (now, videos)
+        try:
+            db.session.add(YouTubeCache(query=query, max_results=max_results, results=videos))
+            db.session.commit()
+            _prune_youtube_cache(_YT_CACHE_MAX_ROWS)
+        except Exception:
+            db.session.rollback()
+    except Exception:
+        pass
+
+_APP_START_TIME = time.time()
 
 _APP_START_TIME = time.time()
 
