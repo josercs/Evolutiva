@@ -97,6 +97,17 @@ export const AuthAPI = {
   logout: () => apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {}),
 };
 
+// React Query helpers
+export const QueryKeys = {
+  me: ['auth','me'] as const,
+  planoAtual: ['planos','me'] as const,
+};
+
+export const queryFetchers = {
+  me: () => AuthAPI.me(),
+  planoAtual: () => PlanosAPI.ultimo(),
+};
+
 export const PlanosAPI = {
   gerar: () => apiFetch('/api/plano-estudo/gerar', { method: 'POST', auth: true }),
   ultimo: () => apiFetch('/api/planos/me', { auth: true }),

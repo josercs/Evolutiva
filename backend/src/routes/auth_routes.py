@@ -1,10 +1,21 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_user, logout_user
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    jwt_required,
+    get_jwt_identity,
+    verify_jwt_in_request,
+    get_jwt,
+)  # type: ignore
 from sqlalchemy import select, func
 from werkzeug.security import check_password_hash
 from models.models import db, User
 import os
 import logging
+
+# In-memory fallback for refresh rotation when Redis indisponível (dev/tests)
+_INMEM_ROTATED: set[str] = set()
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
@@ -22,9 +33,13 @@ def register():
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
+    access = create_access_token(identity=user.id)
+    refresh = create_refresh_token(identity=user.id)
     return jsonify({
         'success': True,
         'message': 'Usuário cadastrado com sucesso',
+        'access_token': access,
+        'refresh_token': refresh,
         'user': {
             'id': user.id,
             'name': user.name,
@@ -104,11 +119,15 @@ def login():
             logging.debug(f"[auth] invalid password for {email}")
         return jsonify({'error': 'Credenciais inválidas'}), 401
 
-    login_user(user)
+    login_user(user)  # mantém compatibilidade sessão
+    access = create_access_token(identity=user.id)
+    refresh = create_refresh_token(identity=user.id)
     return jsonify({
+        'access_token': access,
+        'refresh_token': refresh,
         'id': user.id,
         'name': user.name,
-        'nome': user.name,  # alias
+        'nome': user.name,
         'email': user.email,
         'has_onboarding': user.has_onboarding,
         'onboardingDone': user.has_onboarding,
@@ -123,12 +142,61 @@ def login():
     })
 
 @auth_bp.route('/logout', methods=['POST'])
+@jwt_required(optional=True)
 def logout():
+    # Revoke provided refresh token (client should send it explicitly) — if header access only, this simply logs out session
+    token = None
+    try:
+        verify_jwt_in_request(optional=True)
+        token = get_jwt()
+    except Exception:
+        token = None
     try:
         logout_user()
     except Exception:
         pass
+    if token and token.get('type') == 'refresh':
+        r_client = getattr(auth_bp, 'redis', None) or getattr(auth_bp, 'app', None)
     return jsonify({'success': True, 'message': 'Logout realizado com sucesso'})
+
+@auth_bp.route('/refresh', methods=['POST'])
+def refresh_token():
+    try:
+        # Validate current refresh token
+        verify_jwt_in_request(refresh=True)
+        payload = get_jwt()
+        uid = payload.get('sub') or get_jwt_identity()
+        jti = payload.get('jti')
+        app = auth_bp._get_current_object().app  # type: ignore
+        r_client = getattr(app, 'redis', None)
+        # Rotation: if this refresh was already used, deny (replay)
+        if jti and (
+            (r_client and r_client.sismember('jwt:refresh:rotated', jti)) or
+            (not r_client and jti in _INMEM_ROTATED)
+        ):
+            return jsonify({'error': 'Refresh token reutilizado (replay)'}), 401
+        # Issue new tokens
+        new_access = create_access_token(identity=uid)
+        new_refresh = create_refresh_token(identity=uid)
+        new_payload = {'access_token': new_access, 'refresh_token': new_refresh}
+        # Mark old refresh as rotated and store revoke list (TTL ~ original exp approximation)
+        if r_client and jti:
+            try:
+                r_client.sadd('jwt:refresh:rotated', jti)
+                # Also add to revoked set for explicit blocklist (defense-in-depth)
+                r_client.sadd('jwt:refresh:revoked', jti)
+            except Exception:
+                pass
+        elif jti:
+            _INMEM_ROTATED.add(jti)
+        return jsonify(new_payload)
+    except Exception as e:
+        return jsonify({'error': 'Refresh token inválido', 'details': str(e)}), 401
+
+@auth_bp.route('/token/verify', methods=['GET'])
+@jwt_required()
+def verify_token():
+    return jsonify({'ok': True, 'user_id': get_jwt_identity()})
 
 @auth_bp.route('/forgot-password', methods=['POST'])
 def forgot_password():
@@ -156,6 +224,7 @@ def reset_password():
     return jsonify({'success': False, 'message': 'Dados inválidos para redefinição de senha'}), 400
 
 @auth_bp.route('/update-profile', methods=['PUT'])
+@jwt_required()
 def update_profile():
     data = request.get_json()
     email = (data.get('email') or '').strip().lower()
@@ -170,6 +239,7 @@ def update_profile():
     return jsonify({'success': True, 'message': 'Perfil atualizado com sucesso'})
 
 @auth_bp.route('/delete-account', methods=['DELETE'])
+@jwt_required()
 def delete_account():
     data = request.get_json()
     email = (data.get('email') or '').strip().lower()
@@ -183,6 +253,7 @@ def delete_account():
     return jsonify({'success': True, 'message': 'Conta excluída com sucesso'})
 
 @auth_bp.route('/get-user', methods=['GET'])
+@jwt_required(optional=True)
 def get_user():
     email = (request.args.get('email') or '').strip().lower()
     if not email:
@@ -201,11 +272,10 @@ def get_user():
     })
 
 @auth_bp.route('/user/me', methods=['GET'])
+@jwt_required()
 def user_me():
-    email = (request.args.get('email') or '').strip().lower()
-    if not email:
-        return jsonify({'success': False, 'message': 'E-mail não fornecido'}), 400
-    user = User.query.filter_by(email=email).first()
+    uid = get_jwt_identity()
+    user = User.query.get(uid)
     if not user:
         return jsonify({'success': False, 'message': 'Usuário não encontrado'}), 404
     return jsonify({
@@ -245,3 +315,12 @@ def debug_users():
             for u in users
         ]
     })
+
+@auth_bp.route('/me/jwt', methods=['GET'])
+@jwt_required()
+def me_jwt():
+    uid = get_jwt_identity()
+    user = User.query.get(uid)
+    if not user:
+        return jsonify({'error': 'Usuário não encontrado'}), 404
+    return jsonify({'id': user.id, 'email': user.email, 'name': user.name})

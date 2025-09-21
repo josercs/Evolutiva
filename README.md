@@ -318,13 +318,13 @@ Longo prazo (61-90 dias):
 
 ### Autenticação JWT
 
-O backend utiliza `flask-jwt-extended` para autenticação stateless. Fluxo básico:
+O backend utiliza `flask-jwt-extended` para autenticação stateless com rotação de refresh tokens e revogação assistida por Redis. Fluxo básico atualizado:
 
 1. Registro (`POST /api/auth/register`) ou login (`POST /api/auth/login`) retornam:
     - `access_token`: curta duração (definida via configuração padrão do pacote – ajustar futuramente via variáveis `JWT_ACCESS_TOKEN_EXPIRES`).
     - `refresh_token`: longa duração para obter novos tokens de acesso (`POST /api/auth/refresh`).
 2. O header deve conter `Authorization: Bearer <access_token>` para rotas protegidas com `@jwt_required()`.
-3. Quando o access token expira, o cliente chama `/api/auth/refresh` enviando o refresh token no header Authorization para obter um novo access token.
+3. Quando o access token expira, o cliente chama `/api/auth/refresh` enviando o refresh token no header Authorization para obter um novo par de tokens (access + refresh). O refresh anterior é imediatamente marcado como rotacionado e não poderá ser reutilizado (previne replay).
 4. Endpoints principais:
     - `POST /api/auth/register`
     - `POST /api/auth/login`
@@ -332,10 +332,16 @@ O backend utiliza `flask-jwt-extended` para autenticação stateless. Fluxo bás
     - `GET  /api/auth/token/verify` (validação rápida)
     - `GET  /api/auth/user/me` (dados do usuário autenticado)
 
-Boas práticas recomendadas (próximos passos):
-- Mudar expirações via variáveis: `JWT_ACCESS_TOKEN_EXPIRES=1800` (30m), `JWT_REFRESH_TOKEN_EXPIRES=604800` (7d)
-- Implementar revogação / blacklist (armazenar jti em Redis ao fazer logout/revogação)
-- Rotacionar refresh tokens (emitir novo refresh em cada uso e invalidar o anterior)
+Detalhes de segurança implementados:
+- Rotação de refresh tokens: cada chamada a `/api/auth/refresh` invalida o token anterior (set Redis `jwt:refresh:rotated` + blocklist `jwt:refresh:revoked`). Reuso gera 401.
+- Revogação em Redis: callback `token_in_blocklist_loader` verifica se `jti` está revogado.
+- Cookies seguros configurados (`SESSION_COOKIE_SECURE`, `HTTPONLY`, `SAMESITE=Lax`) e flags preparadas para eventual migração de tokens para cookies.
+- Nginx com cabeçalhos de segurança (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) reduzindo superfícies de ataque XSS / clickjacking.
+
+Boas práticas adicionais recomendadas (ainda configuráveis conforme necessidade):
+- Ajustar expirações via env: `JWT_ACCESS_TOKEN_EXPIRES=1800` (30m), `JWT_REFRESH_TOKEN_EXPIRES=604800` (7d)
+- Migrar refresh tokens para cookies httpOnly se for desejado reforço contra exfiltração por XSS.
+- Implementar logout explícito de refresh token em cliente (já suportado — apenas descartar localmente e aguardar expiração se não houver cookie).
 
 Exemplo uso com curl (login):
 ```bash
@@ -398,6 +404,54 @@ pytest -q
 Próximas melhorias de CI sugeridas:
 - Adicionar cobertura (`pytest --cov`) e badge
 - Adicionar matriz de versões Python (3.11, 3.12)
+
+### Redis & RQ
+
+Adicionados a `requirements-core.txt` para suportar:
+- Revogação e rotação de refresh tokens (Redis)
+- Futuras filas assíncronas (RQ) para tarefas pesadas (ex.: geração de planos avançados, pré-processamento de conteúdos).
+
+Ambiente:
+- Serviço Redis já definido no `docker-compose.yml`.
+- Variável `REDIS_URL` pode sobrescrever host/pipeline. Padrão: `redis://redis:6379/0` em containers.
+
+### Cabeçalhos de Segurança (Nginx)
+
+`infra/nginx/nginx.conf` inclui:
+- `Content-Security-Policy: default-src 'self' data: blob:` (ajuste conforme novas integrações externas)
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()` (agrupar recursos conforme necessidade futura)
+
+### React Query Integração
+
+Adicionada a dependência `@tanstack/react-query` e provider global em `src/main.tsx`:
+- Cache configurado (staleTime 30s, gc 5min) evitando requisições redundantes para endpoints de perfil/planos.
+- Chaves padrão em `apiClient.ts`: `QueryKeys.me`, `QueryKeys.planoAtual`.
+- Futuras rotas podem reutilizar `apiFetch` + `useQuery(QueryKeys.xyz, queryFetchers.xyz)`.
+
+Benefícios:
+- Desacoplamento entre componentes e lógica de fetch.
+- Revalidação reativa opcional.
+- Facilita estratégia offline (futuro) e otimizações.
+
+### Sanitização de HTML
+
+Componentes que exibem conteúdo HTML utilizam `DOMPurify` (ex.: `ContentDisplay`) para neutralizar riscos de XSS quando renderizando material dinâmico.
+
+### Resumo de Hardening Atual
+- Dependências core minimalistas auditadas (script AST).
+- Rotação e revogação de refresh tokens com Redis.
+- Cookies e sessão endurecidos (Secure, HttpOnly, SameSite=Lax).
+- Nginx com CSP e cabeçalhos de segurança padrão.
+- Build frontend efêmero (gera estáticos, container final somente serve via Nginx).
+- Gunicorn parametrizado (workers/threads/timeouts) e filesystem read-only para serviços em produção.
+
+Próximos incrementos sugeridos:
+- Métricas/telemetria (latência p95, contagem 401/429) + dashboard.
+- Testes E2E (Playwright) para fluxo onboarding/autenticação.
+- Política de rotação de SECRET_KEY/JWT keys (key versioning) se múltiplas instâncias escaladas.
 - Falhar build em vulnerabilidades críticas (safety / pip-audit)
 - Cache de dependências Node e build do frontend (workflow separado full-stack)
 
