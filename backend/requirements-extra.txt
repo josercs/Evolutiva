@@ -1,0 +1,6 @@
+# Extras opcionais (mover aqui apenas se realmente precisar)
+# Exemplo de libs potenciais futuras (comentadas até necessidade real):
+# openai
+# google-cloud-storage
+# google-api-python-client
+# google-generativeai==0.8.3  # habilite se endpoints de IA Gemini forem expostos

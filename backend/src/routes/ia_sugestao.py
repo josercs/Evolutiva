@@ -1,7 +1,11 @@
 from flask import Blueprint, request, jsonify
-import google.generativeai as genai
 import os
 import logging
+
+try:  # optional dependency
+    import google.generativeai as genai  # type: ignore
+except Exception:  # pragma: no cover - fallback path
+    genai = None  # type: ignore
 
 bp_ia_sugestao = Blueprint('ia_sugestao', __name__)
 
@@ -13,6 +17,8 @@ def resumir_lista(lista, max_itens=3):
 
 @bp_ia_sugestao.route('/api/ia/sugestao-estudo', methods=['POST'])
 def sugestao_estudo():
+    if genai is None:
+        return jsonify({"error": "IA desativada (biblioteca ausente). Ative instalando google-generativeai e configure GOOGLE_API_KEY."}), 503
     try:
         dados = request.get_json()
         progresso = resumir_lista(dados.get("progresso", ""))
