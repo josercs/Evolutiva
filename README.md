@@ -405,6 +405,40 @@ Próximas melhorias de CI sugeridas:
 - Adicionar cobertura (`pytest --cov`) e badge
 - Adicionar matriz de versões Python (3.11, 3.12)
 
+### Script de Inicialização Rápida (Windows)
+
+Para facilitar o start em ambiente local foi adicionado `scripts/dev-up.ps1`.
+
+Funções:
+- Verifica se o Docker daemon está acessível.
+- Caso Docker esteja ok: executa `docker compose up -d` (opcional rebuild com `-Rebuild`) e aguarda health da API.
+- Caso Docker não esteja rodando e seja passado `-ForceLocalFallback`: sobe backend local (SQLite) + frontend Vite em janelas separadas.
+
+Uso (PowerShell na raiz do repositório):
+```powershell
+./scripts/dev-up.ps1              # sobe stack docker
+./scripts/dev-up.ps1 -Rebuild     # força rebuild das imagens
+./scripts/dev-up.ps1 -ForceLocalFallback  # roda sem Docker (SQLite + Vite)
+```
+
+Após sucesso (modo Docker): acessar `http://localhost`.
+
+Fallback local:
+- API: `http://127.0.0.1:5000`
+- Frontend: `http://localhost:5173`
+
+Logs rápidos (modo Docker):
+```powershell
+docker compose ps
+docker logs api --tail 50
+docker logs nginx --tail 30
+```
+
+Health:
+```powershell
+Invoke-RestMethod -Uri http://localhost/api/health
+```
+
 ### Redis & RQ
 
 Adicionados a `requirements-core.txt` para suportar:
