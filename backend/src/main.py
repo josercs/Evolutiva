@@ -383,6 +383,7 @@ from routes.quiz_gen_routes import (
     fetch_weekly_contents_for_user,
     get_week_start_date,
 )
+from routes import v1_bp
 
 try:
     app.register_blueprint(auth_bp)
@@ -395,6 +396,7 @@ try:
     app.register_blueprint(course_bp)
     app.register_blueprint(onboarding_bp)
     app.register_blueprint(bp_quiz_gen)
+    app.register_blueprint(v1_bp)
 
     # Optional AI blueprints (skip if deps missing)
     try:
@@ -509,9 +511,24 @@ def load_user(user_id):
     except Exception:
         return None
 
+_APP_START_TIME = time.time()
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "online", "message": "API do Sistema de Estudos está funcionando!"})
+    """Health básico retrocompatível."""
+    uptime = int(time.time() - _APP_START_TIME)
+    # Check DB quickly
+    db_ok = True
+    try:
+        db.session.execute(text('SELECT 1'))
+    except Exception:
+        db_ok = False
+    return jsonify({
+        "status": "online",
+        "message": "API do Sistema de Estudos está funcionando!",
+        "uptime_seconds": uptime,
+        "db_ok": db_ok
+    })
 
 @app.route('/')
 def index():
