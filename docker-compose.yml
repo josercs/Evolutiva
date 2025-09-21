@@ -40,10 +40,11 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-    env_file: [.env]
+    env_file:
+      - .env
     environment:
       FLASK_ENV: production
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
       USE_SQLITE: "false"
       AUTO_DDL_ON_START: "0"
@@ -62,7 +63,8 @@ services:
       retries: 10
     security_opt:
       - no-new-privileges:true
-    networks: [evolutiva]
+    networks:
+      - evolutiva
 
   worker:
     build:
@@ -70,10 +72,11 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     command: ["bash","-lc","python -m rq worker -u ${REDIS_URL:-redis://redis:6379/0} evolutiva"]
-    env_file: [.env]
+    env_file:
+      - .env
     environment:
       FLASK_ENV: production
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
       USE_SQLITE: "false"
     depends_on:
@@ -81,7 +84,8 @@ services:
         condition: service_healthy
       db:
         condition: service_healthy
-    networks: [evolutiva]
+    networks:
+      - evolutiva
 
   frontend-build:
     build:
