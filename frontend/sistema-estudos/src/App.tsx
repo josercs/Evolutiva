@@ -1,26 +1,27 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AvatarProvider } from "./contexts/AvatarContext";
 import { UserProvider } from './contexts/UserContext';
 import { NotificationProvider } from "./components/notificacoes/NotificationProvider";
 import Navbar from './components/navegacao/Navbar'; // default import
 import Sidebar from './components/navegacao/Sidebar';
-import HomePage from './pages/HomePage';
-import CoursesPage from './pages/CoursesPage';
-import CoursesIFRSPage from './pages/CoursesIFRSPage';
-import CoursesCTISMPage from './pages/CoursesCTISMPage';
-import CoursesMilitaresPage from './pages/CoursesMilitaresPage';
-import CourseDetailPage from './pages/CourseDetailPage';
-import LessonPage from './pages/LessonPage';
-import ProfilePage from './pages/ProfilePage';
-import AuthPage from './pages/AuthPage';
-import TrilhasPage from './pages/TrilhasPage';
-import PaginaConteudo from "./pages/PaginaConteudo_optimized";
-import PainelPage from "./pages/PainelPage";
-import OnboardingWizard from './pages/Onboarding/OnboardingWizard';
+const HomePage = lazy(() => import('./pages/HomePage'));
+const CoursesPage = lazy(() => import('./pages/CoursesPage'));
+const CoursesIFRSPage = lazy(() => import('./pages/CoursesIFRSPage'));
+const CoursesCTISMPage = lazy(() => import('./pages/CoursesCTISMPage'));
+const CoursesMilitaresPage = lazy(() => import('./pages/CoursesMilitaresPage'));
+const CourseDetailPage = lazy(() => import('./pages/CourseDetailPage'));
+const LessonPage = lazy(() => import('./pages/LessonPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
+const TrilhasPage = lazy(() => import('./pages/TrilhasPage'));
+const PaginaConteudo = lazy(() => import('./pages/PaginaConteudo_optimized'));
+const PainelPage = lazy(() => import('./pages/PainelPage'));
+const OnboardingWizard = lazy(() => import('./pages/Onboarding/OnboardingWizard'));
 import { PlanoProvider } from "./contexts/PlanoContext";
 import AgendasPage from './pages/AgendasPage';
 import HabitosPage from './pages/HabitosPage';
+import QuestoesPage from './pages/QuestoesPage';
 
 import { AuthRoute } from './components/autenticacao/AuthRoute';
 
@@ -46,6 +47,7 @@ function App() {
             <Router>
               <Navbar />
               <Sidebar />
+              <Suspense fallback={<div className="pt-navbar ml-sidebar p-6 text-sm text-gray-500">Carregando módulo...</div>}>
               <Routes>
                 {/* Rotas do aplicativo */}
                 <Route
@@ -131,6 +133,14 @@ function App() {
                   }
                 />
                 <Route
+                  path="/questoes"
+                  element={
+                    <PrivateRoute>
+                      <QuestoesPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
                   path="/progresso"
                   element={<Navigate to="/painel" replace />}
                 />
@@ -168,6 +178,7 @@ function App() {
                 />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
+              </Suspense>
             </Router>
           </PlanoProvider>
         </UserProvider>

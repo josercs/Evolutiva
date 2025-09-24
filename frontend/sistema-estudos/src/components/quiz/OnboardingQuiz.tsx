@@ -59,44 +59,19 @@ const OnboardingQuiz: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg, #e3f2fd 0%, #ffe082 100%)",
-      }}
-    >
-      <h2 style={{ fontSize: 24, marginBottom: 16 }}>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[linear-gradient(135deg,#e0f2fe_0%,#d1fae5_100%)] px-4">
+      <h2 className="text-2xl mb-4 font-semibold text-slate-800">
         Quiz de Nivelamento ({current + 1}/{questions.length})
       </h2>
-      <div style={{ fontSize: 20, marginBottom: 24, fontWeight: 600 }}>
+      <div className="text-xl mb-6 font-semibold text-slate-900">
         {questions[current].question}
       </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-          width: "100%",
-          maxWidth: 400,
-        }}
-      >
+      <div className="flex flex-col gap-4 w-full max-w-md">
         {questions[current].options.map((opt, idx) => (
           <button
             key={opt}
             onClick={() => handleAnswer(idx)}
-            style={{
-              padding: 16,
-              borderRadius: 20,
-              border: "1px solid #ddd",
-              background: "#fff",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontSize: 16,
-            }}
+            className="px-5 py-4 rounded-2xl border border-slate-200 bg-white font-semibold text-base hover:bg-blue-50 transition"
           >
             {opt}
           </button>

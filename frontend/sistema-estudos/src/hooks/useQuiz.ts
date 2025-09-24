@@ -3,18 +3,25 @@ import { toast } from "react-toastify";
 
 // Tipagem para as perguntas do quiz (ajustar conforme a API real)
 interface QuizQuestion {
+  id?: string;
+  type: 'mcq' | 'tf' | 'cloze';
   question: string;
-  options: string[];
-  answer: string; // A resposta correta
-  // Outros campos que a API possa retornar
+  options?: string[];
+  answer?: number | boolean | string; // number for mcq index OR boolean for tf OR string for cloze
+  explanation?: string;
+  difficulty?: string;
+  format?: string;
 }
 
 // Tipagem para o estado das respostas selecionadas
 interface SelectedAnswers {
-  [key: number]: number; // Mapeia índice da pergunta para índice da opção selecionada
+  // Para MCQ: number (index da opção)
+  // Para TF: boolean
+  // Para Cloze: string
+  [key: number]: number | boolean | string;
 }
 
-const API_BASE_URL = "http://localhost:5000"; // Mover para .env
+import { API_BASE_URL } from "../../config";
 
 interface UseQuizProps {
   contentId: string | undefined; // ID do conteúdo para gerar/buscar o quiz
@@ -34,7 +41,8 @@ export const useQuiz = ({ contentId, contentHtml, onQuizComplete }: UseQuizProps
 
   // Função para buscar/gerar o quiz
   const generateQuiz = useCallback(async () => {
-    if (!contentId) {
+  console.log('generateQuiz called', { contentId });
+  if (!contentId) {
       toast.error("ID do conteúdo não disponível para gerar o quiz.");
       return;
     }
@@ -45,17 +53,30 @@ export const useQuiz = ({ contentId, contentHtml, onQuizComplete }: UseQuizProps
     setCurrentQuizIdx(0);
     setQuizLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/generate_quiz/${contentId}`);
+      // Preferir endpoint do backend que retorna o quiz pronto (Gemini pipeline)
+  const res = await fetch(`${API_BASE_URL}/me/weekly-quiz`, { credentials: 'include' });
       if (!res.ok) throw new Error("Erro ao buscar quiz da API");
       const data = await res.json();
-      if (Array.isArray(data?.questions) && data.questions.length > 0) {
-        setQuizQuestions(data.questions);
+      // backend returns { status, items: [...] } or similar
+      const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data?.questions) ? data.questions : []);
+      if (items.length > 0) {
+        // Map to local QuizQuestion shape (keep original fields from backend)
+  setQuizQuestions(items.map((it: any) => ({
+          id: it.id,
+          type: it.type || 'mcq',
+          question: it.question || it.prompt || '',
+          options: Array.isArray(it.options) ? it.options : undefined,
+          answer: it.answer,
+          explanation: it.explanation,
+          difficulty: it.difficulty,
+          format: it.format,
+        })));
       } else {
         setQuizQuestions([]);
         toast.error("Nenhuma pergunta foi gerada para este conteúdo.");
       }
     } catch (err: any) {
-      toast.error(`Erro ao gerar quiz: ${err.message || "Tente novamente."}`);
+      toast.error(`Erro ao gerar quiz: ${err?.message || "Tente novamente."}`);
       setQuizQuestions([]);
       setShowQuiz(false);
     } finally {
@@ -64,7 +85,7 @@ export const useQuiz = ({ contentId, contentHtml, onQuizComplete }: UseQuizProps
   }, [contentId]);
 
   // Função para selecionar uma resposta
-  const handleSelectAnswer = useCallback((questionIdx: number, optionIdx: number) => {
+  const handleSelectAnswer = useCallback((questionIdx: number, optionIdx: number | boolean | string) => {
     // Permite alterar a resposta antes de submeter
     if (!showResults) {
         setSelectedAnswers((prev) => ({
@@ -81,13 +102,21 @@ export const useQuiz = ({ contentId, contentHtml, onQuizComplete }: UseQuizProps
     setIsSubmitting(true);
     setShowResults(true);
 
-    // Calcula acertos
-    const correctCount = quizQuestions.filter(
-      (q, idx) =>
-        q.options &&
-        selectedAnswers[idx] !== undefined &&
-        q.options[selectedAnswers[idx]] === q.answer
-    ).length;
+    // Calcula acertos considerando tipos
+    const correctCount = quizQuestions.filter((q, idx) => {
+      const sel = selectedAnswers[idx];
+      if (q.type === 'mcq' && Array.isArray(q.options) && typeof sel === 'number') {
+        return q.options[sel] === q.answer;
+      }
+      if (q.type === 'tf' && typeof sel === 'boolean') {
+        return sel === q.answer;
+      }
+      if (q.type === 'cloze' && typeof sel === 'string' && typeof q.answer === 'string') {
+        const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+        return norm(sel) === norm(q.answer as string);
+      }
+      return false;
+    }).length;
 
     // Chama o callback com o resultado
     onQuizComplete?.(correctCount, quizQuestions.length);
@@ -100,34 +129,48 @@ export const useQuiz = ({ contentId, contentHtml, onQuizComplete }: UseQuizProps
   // Efeito para buscar feedback da IA após os resultados serem mostrados
   useEffect(() => {
     if (showResults && quizQuestions.length > 0 && contentHtml) {
-      setQuizFeedback("Gerando feedback..."); // Mostra estado de carregamento
-      fetch(`${API_BASE_URL}/api/quiz_feedback`, {
+      setQuizFeedback("Gerando feedback...");
+      // Constrói o array de respostas no formato que o backend espera (strings/boolean coerentes)
+      const answersForApi = quizQuestions.map((q, idx) => {
+        const sel = selectedAnswers[idx];
+        if (q.type === 'mcq' && Array.isArray(q.options) && typeof sel === 'number') {
+          return q.options[sel] ?? null;
+        }
+        if (q.type === 'tf' && typeof sel === 'boolean') {
+          return sel;
+        }
+        if (q.type === 'cloze' && typeof sel === 'string') {
+          return sel;
+        }
+        return null;
+      });
+  fetch(`${API_BASE_URL}/quiz_feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           questions: quizQuestions,
-          // Mapeia as respostas selecionadas para o formato esperado pela API
-          answers: Object.entries(selectedAnswers).map(([qIdx, oIdx]) => {
-              const questionIndex = Number(qIdx);
-              if (quizQuestions[questionIndex] && quizQuestions[questionIndex].options) {
-                  return quizQuestions[questionIndex].options[oIdx as number] ?? null; // Retorna null se a opção não existir
-              }
-              return null; // Retorna null se a pergunta não existir
-          }).filter(answer => answer !== null), // Filtra respostas nulas
+          answers: answersForApi,
           conteudo: contentHtml,
         }),
       })
         .then(res => {
-            if (!res.ok) throw new Error(`Erro ${res.status} ao buscar feedback.`);
-            return res.json();
+          if (!res.ok) throw new Error(`Erro ${res.status} ao buscar feedback.`);
+          return res.json();
         })
         .then(data => setQuizFeedback(data.feedback || "Não foi possível gerar feedback."))
         .catch((err) => {
-            console.error("Erro ao buscar feedback do quiz:", err);
-            setQuizFeedback("Erro ao obter feedback da IA.");
+          console.error("Erro ao buscar feedback do quiz:", err);
+          setQuizFeedback("Erro ao obter feedback da IA.");
         });
     }
   }, [showResults, quizQuestions, selectedAnswers, contentHtml]);
+
+  // Permite abrir modal sem re-gerar (quando já temos perguntas carregadas)
+  const openQuiz = useCallback(() => {
+    if (quizQuestions.length > 0) {
+      setShowQuiz(true);
+    }
+  }, [quizQuestions.length]);
 
   // Função para fechar e resetar o estado do quiz
   const closeQuiz = useCallback(() => {
@@ -159,6 +202,7 @@ export const useQuiz = ({ contentId, contentHtml, onQuizComplete }: UseQuizProps
     currentQuizIdx,
     isSubmitting,
     generateQuiz,
+  openQuiz,
     handleSelectAnswer,
     handleSubmitQuiz,
     closeQuiz,

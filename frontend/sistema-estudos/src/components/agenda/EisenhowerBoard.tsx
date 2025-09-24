@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
-import axios from "axios";
+import { apiFetch } from "../../apiClient";
 
 type Tarefa = {
     id: string;
@@ -19,8 +19,9 @@ const EisenhowerBoard: React.FC = () => {
     const [tarefas, setTarefas] = useState<Tarefa[]>([]);
 
     useEffect(() => {
-        // Carregar tarefas da API (ajuste a URL conforme necessário)
-        axios.get("/api/tarefas").then((res) => setTarefas(res.data));
+        apiFetch<Tarefa[]>("/api/tarefas", { auth: true })
+            .then((data) => setTarefas(data))
+            .catch(() => {/* silencia por enquanto */});
     }, []);
 
     const onDragEnd = async (result: DropResult) => {
@@ -35,10 +36,14 @@ const EisenhowerBoard: React.FC = () => {
             )
         );
 
-        // Atualiza prioridade na API
-        await axios.post(`/api/tarefas/atualizar-prioridade/${tarefaId}`, {
-            prioridade: novaPrioridade,
-        });
+        try {
+            await apiFetch(`/api/tarefas/atualizar-prioridade/${tarefaId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prioridade: novaPrioridade }),
+                auth: true
+            });
+        } catch {/* rollback simples poderia ser adicionado */}
     };
 
     return (
@@ -46,7 +51,7 @@ const EisenhowerBoard: React.FC = () => {
             <div style={{ display: "flex", gap: 16 }}>
                 {quadrantes.map((q) => (
                     <Droppable droppableId={q.key} key={q.key}>
-                        {(provided) => (
+                        {(provided: Parameters<NonNullable<React.ComponentProps<typeof Droppable>['children']>>[0]) => (
                             <div
                                 ref={provided.innerRef}
                                 {...provided.droppableProps}
@@ -64,7 +69,7 @@ const EisenhowerBoard: React.FC = () => {
                                     .filter((t) => t.prioridade === q.key)
                                     .map((t, idx) => (
                                         <Draggable draggableId={t.id} index={idx} key={t.id}>
-                                            {(provided) => (
+                                            {(provided: Parameters<NonNullable<React.ComponentProps<typeof Draggable>['children']>>[0]) => (
                                                 <div
                                                     ref={provided.innerRef}
                                                     {...provided.draggableProps}

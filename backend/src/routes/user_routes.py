@@ -3,7 +3,7 @@ from flask_login import current_user, login_required
 
 user_bp = Blueprint('user', __name__, url_prefix='/api/user')
 
-@user_bp.route('/me', methods=['GET'])
+@user_bp.route('/me-session', methods=['GET'])
 @login_required
 def get_current_user():
     return jsonify({
@@ -25,7 +25,7 @@ def get_current_user():
 # Alias legacy/new consistency: also expose /api/users/me with identical payload
 users_bp = Blueprint('users', __name__, url_prefix='/api/users')
 
-@users_bp.route('/me', methods=['GET'])
+@users_bp.route('/me-session', methods=['GET'])
 @login_required
 def get_current_user_alias():
     return jsonify({

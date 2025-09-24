@@ -18,9 +18,7 @@ export function useUserAvatar() {
       setIsLoadingAvatar(true);
       setAvatarError(null);
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/usuarios/avatar?email=${encodeURIComponent(user.email || "")}`
-        );
+  const response = await fetch(`${API_BASE_URL}/usuarios/avatar?email=${encodeURIComponent(user.email || "")}`);
         if (!response.ok) throw new Error("Falha ao buscar avatar");
         const data = await response.json();
         setAvatarUrl(data.avatarUrl || "");

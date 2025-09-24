@@ -1,11 +1,13 @@
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy.dialects.postgresql import ARRAY, TEXT
+from sqlalchemy.dialects.postgresql import ARRAY, TEXT  # Postgres specific (legacy); evitar usar diretamente em colunas se quiser compat SQLite
+from sqlalchemy import UniqueConstraint
 
 db = SQLAlchemy()
 
-class User(db.Model):
+class User(db.Model, UserMixin):
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -18,7 +20,9 @@ class User(db.Model):
     idade = db.Column(db.Integer)
     escolaridade = db.Column(db.String(64), nullable=True)     # antes podia ser muito curto
     objetivo = db.Column(db.String(120), nullable=True)
-    dias_disponiveis = db.Column(ARRAY(TEXT), nullable=True)  # JSON for SQLite/Postgres compatibility (replaces ARRAY)
+    # ATENÇÃO: ARRAY não é suportado pelo SQLite usado em testes. Usar JSON garante compatibilidade multi‑dialeto.
+    # Em Postgres podemos futuramente migrar para ARRAY(TEXT) se for realmente necessário para operações específicas.
+    dias_disponiveis = db.Column(db.JSON, nullable=True)
     tempo_diario = db.Column(db.Integer)
     estilo_aprendizagem = db.Column(db.String(32), nullable=True)
     ritmo = db.Column(db.String(16), nullable=True)            # ex.: leve | moderado | desafiador
@@ -37,21 +41,7 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
         
-    # Flask-Login integration
-    @property
-    def is_authenticated(self):
-        return True
-
-    @property
-    def is_active(self):
-        return True  # ou lógica para desativar usuário
-
-    @property
-    def is_anonymous(self):
-        return False
-
-    def get_id(self):
-        return str(self.id)
+    # UserMixin já provê is_authenticated, is_active, is_anonymous, get_id
         
 class Course(db.Model):
     __tablename__ = 'courses'
@@ -334,4 +324,22 @@ class YouTubeCache(db.Model):
 
     def __repr__(self):
         return f'<YouTubeCache q={self.query} max={self.max_results}>'
+
+# ==== Weekly quiz generated (deterministic, JSON payload) ====
+class WeeklyQuiz(db.Model):
+    __tablename__ = 'weekly_quizzes'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    week_start = db.Column(db.Date, nullable=False, index=True)  # Monday (user TZ if available)
+    status = db.Column(db.String(16), nullable=False, default='ready', index=True)  # ready|pending
+    version = db.Column(db.Integer, nullable=False, default=1)
+    data = db.Column(db.JSON, nullable=False)  # full quiz JSON array
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'week_start', name='uq_weekly_quiz_user_week'),
+    )
+
+    def __repr__(self):
+        return f'<WeeklyQuiz user={self.user_id} id={self.id}>'
 

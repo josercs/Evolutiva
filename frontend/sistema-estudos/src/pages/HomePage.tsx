@@ -60,42 +60,51 @@ const HomePage: React.FC = () => {
 
   // Busca dados reais do usuário logado e progresso
   useEffect(() => {
-    if (user && user.email) {
-      fetch("/api/user/me", { credentials: "include" })
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data) {
-            setUserData({
-              name: data.nome || user.name || "",
-              avatarUrl: data.avatar || user.avatar || "",
-              level: data.level || 1,
-              badges: data.badges || [],
-              xp: data.xp || 0,
-              streak: data.streak || 0,
-            });
-          }
+    let mounted = true;
+    const load = async () => {
+      if (!(user && user.email)) return;
+      try {
+        const meRes = await fetch("/api/user/me", { credentials: "include" });
+        if (!meRes.ok) return;
+        const me = await meRes.json();
+        if (!mounted) return;
+        setUserData({
+          name: me.nome || user.name || "",
+          avatarUrl: me.avatar || user.avatar || "",
+          level: me.level || 1,
+          badges: me.badges || [],
+          xp: me.xp || 0,
+          streak: me.streak || 0,
         });
-
-      fetch("/api/progresso", { credentials: "include" })
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data) {
-            setProgresso(data.materias || []);
-            setAchievements(
-              (data.achievements || []).map((a: any) => ({
-                id: a.id,
-                title: a.title,
-                description: a.description,
-                date: a.earned_at,
-              }))
-            );
-            if (data.newAchievement) {
-              setShowConfetti(true);
-              setTimeout(() => setShowConfetti(false), 3000);
-            }
-          }
-        });
-    }
+        const userId = me.id;
+        if (!userId) return;
+        // Descobre curso do usuário e depois busca progresso por matéria
+        const cursoRes = await fetch(`/api/progresso/user/${userId}/curso`, { credentials: "include" });
+        if (!cursoRes.ok) return;
+        const curso = await cursoRes.json();
+        if (!curso?.id) return;
+        const [progRes, achRes] = await Promise.all([
+          fetch(`/api/progresso/materias/${userId}/${curso.id}`, { credentials: "include" }),
+          fetch(`/api/progresso/achievements/${userId}`, { credentials: "include" })
+        ]);
+        const prog = progRes.ok ? await progRes.json() : null;
+        const ach = achRes.ok ? await achRes.json() : null;
+        if (!mounted) return;
+        setProgresso(prog?.progresso || []);
+        setAchievements(
+          (ach?.achievements || []).map((a: any) => ({
+            id: a.id,
+            title: a.title,
+            description: a.description,
+            date: a.earned_at,
+          }))
+        );
+      } catch {
+        // ignore
+      }
+    };
+    load();
+    return () => { mounted = false; };
   }, [user]);
 
   const greeting = getGreeting();

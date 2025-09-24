@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config";
 
 type AvatarContextType = {
   avatarUrl: string;
@@ -19,7 +20,7 @@ export const AvatarProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     const userEmail = localStorage.getItem("userEmail");
     if (userEmail) {
-      fetch(`/api/usuarios/avatar?email=${encodeURIComponent(userEmail)}`)
+      fetch(`${API_BASE_URL}/usuarios/avatar?email=${encodeURIComponent(userEmail)}`)
         .then(res => res.json())
         .then(data => setAvatarUrl(data.avatarUrl || ""));
     }

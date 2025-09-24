@@ -1,0 +1,16 @@
+# Reduce frontend build context
+node_modules/
+**/node_modules/
+.dist/
+dist/
+.cache/
+.pnpm-store/
+.npm/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+*.tgz
+# Build info artifacts
+*.tsbuildinfo

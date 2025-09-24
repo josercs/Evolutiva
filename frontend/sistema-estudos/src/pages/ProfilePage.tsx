@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { User } from "lucide-react";
 import { Progress } from "../components/ui/progress";
+import { AuthAPI } from "../apiClient";
+import { API_BASE_URL } from "../../config";
 
-const API_URL = "http://localhost:5000";
+const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 type Progress = {
   completed: number;
@@ -30,7 +32,7 @@ const ProfilePage = () => {
       fetch(`/api/progress?email=${user.email}`).then((res) =>
         res.ok ? res.json() : null
       ),
-      fetch(`/api/usuarios/avatar?email=${encodeURIComponent(user.email)}`).then(
+  fetch(`${API_BASE_URL}/usuarios/avatar?email=${encodeURIComponent(user.email)}`).then(
         (res) => res.json()
       ),
     ]).then(([progressData, avatarData]) => {
@@ -39,10 +41,15 @@ const ProfilePage = () => {
     });
   }, [user?.email]);
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await AuthAPI.logout();
+    } catch {}
     localStorage.removeItem("userEmail");
     localStorage.removeItem("user");
-    window.location.href = "/";
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    navigate("/", { replace: true });
   }
 
   if (!user || !user.email) {

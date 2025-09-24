@@ -271,7 +271,17 @@ const CoursesPage = () => {
     return mapped;
   }, [cursos]);
 
-  const handleCourseNavigation = (courseId: string) => navigate(`/cursos/${courseId}/materias`);
+  const handleCourseNavigation = async (courseId: string) => {
+    try {
+      await fetch(`/api/onboarding`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ curso_id: Number(courseId) })
+      });
+    } catch {}
+    navigate(`/cursos/${courseId}/materias`);
+  };
 
   return (
     <div

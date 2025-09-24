@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
+import DOMPurify from 'dompurify';
 
 interface ContentDisplayProps {
   contentHtml: string | null | undefined;
@@ -19,13 +20,15 @@ export const ContentDisplay: React.FC<ContentDisplayProps> = ({ contentHtml, con
     return <div ref={contentRef} className="content-area p-6 text-gray-500 bg-gray-50 rounded-lg shadow-inner">Carregando conteúdo...</div>;
   }
 
+  // Sanitiza HTML para prevenir XSS
+  const safeHtml = React.useMemo(() => DOMPurify.sanitize(contentHtml, { USE_PROFILES: { html: true } }), [contentHtml]);
+
   return (
     <div
-      ref={contentRef} // Associa a ref passada ao elemento div
-      id="conteudo-html" // Mantém o ID original para compatibilidade
-      // Estilos do Prose refinados para melhor legibilidade e apelo visual
+      ref={contentRef}
+      id="conteudo-html"
       className="prose prose-lg max-w-none p-6 bg-white rounded-lg shadow-sm border border-gray-200 prose-headings:text-gray-800 prose-p:text-gray-700 prose-a:text-indigo-600 hover:prose-a:text-indigo-800 prose-strong:text-gray-800 prose-blockquote:border-l-indigo-500 prose-blockquote:text-gray-600 prose-li:marker:text-indigo-500"
-      dangerouslySetInnerHTML={{ __html: contentHtml }}
+      dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   );
 };

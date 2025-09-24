@@ -13,7 +13,7 @@ interface MindMapData {
   root: MindMapNode;
 }
 
-const API_BASE_URL = "http://localhost:5000"; // Mover para .env
+import { API_BASE_URL } from "../../config";
 
 interface UseMindMapProps {
   contentId: string | undefined;

@@ -10,6 +10,8 @@ interface StudyTabsProps {
   summaryContent: React.ReactNode; // Conteúdo da aba Resumo
   qaContent: React.ReactNode; // Conteúdo da aba Anotações/Perguntas
   contentDisplay: React.ReactNode; // O componente que exibe o conteúdo principal
+  middleTabLabel?: string; // Rótulo da aba do meio (padrão: "Resumo")
+  renderMiddleHeader?: boolean; // Exibe o título interno da aba do meio
 }
 
 /**
@@ -21,6 +23,8 @@ export const StudyTabs: React.FC<StudyTabsProps> = ({
   summaryContent,
   qaContent,
   contentDisplay,
+  middleTabLabel = 'Resumo',
+  renderMiddleHeader = true,
 }) => {
 
   // Função para obter classes CSS dinâmicas para as abas
@@ -49,7 +53,7 @@ export const StudyTabs: React.FC<StudyTabsProps> = ({
           className={getTabClassName('summary')}
           onClick={() => setActiveTab('summary')}
         >
-          <ClipboardIcon className="h-5 w-5 mr-1" /> Resumo
+          <ClipboardIcon className="h-5 w-5 mr-1" /> {middleTabLabel}
         </button>
         <button
           className={getTabClassName('qa')}
@@ -67,11 +71,16 @@ export const StudyTabs: React.FC<StudyTabsProps> = ({
           </div>
         )}
         {activeTab === 'summary' && (
-          // Mantém o estilo anterior, que já era razoável
           <div className="p-4 bg-white rounded-lg shadow border border-gray-200">
-            <h3 className="text-xl font-semibold mb-3 text-indigo-700">Resumo Gerado</h3>
+            {renderMiddleHeader && (
+              <h3 className="text-xl font-semibold mb-3 text-indigo-700">{middleTabLabel}</h3>
+            )}
             <div className="prose prose-sm max-w-none text-gray-800">
-                {typeof summaryContent === 'string' ? <pre className="whitespace-pre-wrap font-sans bg-gray-50 p-3 rounded">{summaryContent}</pre> : summaryContent}
+              {typeof summaryContent === 'string' ? (
+                <pre className="whitespace-pre-wrap font-sans bg-gray-50 p-3 rounded">{summaryContent}</pre>
+              ) : (
+                summaryContent
+              )}
             </div>
           </div>
         )}

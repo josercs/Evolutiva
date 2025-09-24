@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import WeeklyQuizTeaser from "../components/quiz/WeeklyQuizTeaser";
 import {
   Award, Calendar, Clock, Target, BookOpen, Play, Flame, Check, AlertTriangle, X,
   BarChart2, ChevronLeft, ChevronRight, Zap, Plus, Wand2
@@ -418,7 +419,12 @@ const TrilhasPage: React.FC = () => {
         </StatCard>
 
         <StatCard title="Cobertura por matéria" icon={<Target className="h-4 w-4" />}>
-          <div className="flex flex-wrap gap-1.5 max-h-20 overflow-hidden" style={{ maskImage: showAllCoverage ? "none" : "linear-gradient(#000 60%, transparent)" }}>
+          <div
+            className={[
+              "flex flex-wrap gap-1.5 max-h-20 overflow-hidden",
+              showAllCoverage ? "" : "[mask-image:linear-gradient(#000_60%,transparent)]",
+            ].join(" ")}
+          >
             {Object.entries(planoCompleto.coverage || {}).map(([k, v]) => (
               <span key={k} className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">{k}: {Math.round(v)}%</span>
             ))}
@@ -563,6 +569,9 @@ const TrilhasPage: React.FC = () => {
               Criar simulado
             </button>
           </div>
+
+          {/* Teaser da Revisão da Semana */}
+          <WeeklyQuizTeaser />
         </aside>
       </div>
 

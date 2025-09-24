@@ -52,7 +52,16 @@ const menuData: MenuItem[] = [
     icon: BookOpen,
     path: '/cursos/1/materias', // <-- igual à página de matérias
   },
-  { id: 'questoes', label: 'Questões', icon: Layers, path: '/questoes', badge: "+5" },
+  {
+    id: 'questoesRoot',
+    label: 'Questões',
+    icon: Layers,
+    defaultOpen: true,
+    children: [
+      { id: 'questoesRevisao', label: 'Revisão da Semana', path: '/questoes#revisao-semanal', isSubItem: true },
+      { id: 'questoesTodas', label: 'Todas as Questões', path: '/questoes', isSubItem: true },
+    ],
+  },
   /* {
      id: 'flashcards',
      label: 'Flashcards',
@@ -183,8 +192,9 @@ const ExpandableMenuItem: React.FC<ExpandableMenuProps> = ({
   const Icon = item.icon;
   // Um menu expansível é considerado ativo se ele próprio estiver aberto E um de seus filhos for o path atual.
   // Ou, se ele não tiver filhos diretos que são paths, mas sub-menus expansíveis ativos.
+  const stripHash = (p?: string) => (p || '').split('#')[0];
   const isActive = isOpen && (item.children?.some(child =>
-    child.path === currentPath || (child.children && child.children.some(subChild => subChild.path === currentPath))
+    stripHash(child.path) === stripHash(currentPath) || (child.children && child.children.some(subChild => stripHash(subChild.path) === stripHash(currentPath)))
   ) ?? false);
 
   const subItemPaddingClass = item.isSubItem || depth > 0 ? "pl-8" : "";
@@ -243,6 +253,8 @@ interface RenderMenuItemProps {
 }
 
 const RenderMenuItemComponent: React.FC<RenderMenuItemProps> = ({ item, currentPath, onLinkClick, depth = 0, collapsed }) => {
+  // normaliza o path removendo hash para comparar rotas
+  const normalizePath = (p?: string) => (p || '').split('#')[0];
   if (item.isTitle) {
     return (
       <div className="pt-4 first:pt-0">
@@ -257,7 +269,7 @@ const RenderMenuItemComponent: React.FC<RenderMenuItemProps> = ({ item, currentP
     return (
       <ExpandableMenuItem
         item={item}
-        currentPath={currentPath}
+        currentPath={normalizePath(currentPath)}
         isOpen={!!openMenusState[item.id]}
         onToggle={() => setOpenMenusState(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
         onLinkClick={onLinkClick}
@@ -270,7 +282,7 @@ const RenderMenuItemComponent: React.FC<RenderMenuItemProps> = ({ item, currentP
   return (
     <SidebarNavigationItem
       item={item}
-      isActive={currentPath === item.path}
+      isActive={normalizePath(currentPath) === normalizePath(item.path)}
       onClick={onLinkClick} // Passa o onLinkClick para fechar mobile
       collapsed={collapsed}
     />

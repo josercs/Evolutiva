@@ -8,6 +8,9 @@ from models.models import PomodoroSession
 
 progress_bp = Blueprint('progress', __name__, url_prefix='/api/progress')
 
+# Legacy alias blueprint for Portuguese path expected by frontend
+progresso_bp = Blueprint('progresso', __name__, url_prefix='/api/progresso')
+
 @progress_bp.route('/materias/<int:user_id>/<int:curso_id>', methods=['GET'])
 def progresso_materias(user_id, curso_id):
     """
@@ -55,6 +58,11 @@ def progresso_materias(user_id, curso_id):
 
     return jsonify({"progresso": progresso})
 
+# Legacy alias endpoints mapping to the same handlers
+@progresso_bp.route('/materias/<int:user_id>/<int:curso_id>', methods=['GET'])
+def progresso_materias_alias(user_id, curso_id):
+    return progresso_materias(user_id, curso_id)
+
 # Endpoint para listar conquistas do usuário
 @progress_bp.route('/achievements/<int:user_id>', methods=['GET'])
 def get_user_achievements(user_id):
@@ -71,6 +79,10 @@ def get_user_achievements(user_id):
             for a in achievements
         ]
     })
+
+@progresso_bp.route('/achievements/<int:user_id>', methods=['GET'])
+def get_user_achievements_alias(user_id):
+    return get_user_achievements(user_id)
 
 # Endpoint para progresso geral do usuário (todos os cursos)
 @progress_bp.route('/user/<int:user_id>', methods=['GET'])
@@ -89,6 +101,10 @@ def get_user_progress(user_id):
         ]
     })
 
+@progresso_bp.route('/user/<int:user_id>', methods=['GET'])
+def get_user_progress_alias(user_id):
+    return get_user_progress(user_id)
+
 @progress_bp.route('/user/<int:user_id>/xp', methods=['GET'])
 def get_user_xp(user_id):
     # Exemplo: retorne XP e streak do usuário
@@ -98,6 +114,10 @@ def get_user_xp(user_id):
         "xp": xp.xp if xp else 0,
         "streak": xp.streak if xp else 0
     })
+
+@progresso_bp.route('/user/<int:user_id>/xp', methods=['GET'])
+def get_user_xp_alias(user_id):
+    return get_user_xp(user_id)
 
 @progress_bp.route('/user/<int:user_id>/curso', methods=['GET'])
 def get_user_curso(user_id):
@@ -115,6 +135,10 @@ def get_user_curso(user_id):
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@progresso_bp.route('/user/<int:user_id>/curso', methods=['GET'])
+def get_user_curso_alias(user_id):
+    return get_user_curso(user_id)
 
 @progress_bp.route('/pomodoro', methods=['POST'])
 @login_required

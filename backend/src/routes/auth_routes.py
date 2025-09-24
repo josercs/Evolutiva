@@ -33,8 +33,9 @@ def register():
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    access = create_access_token(identity=user.id)
-    refresh = create_refresh_token(identity=user.id)
+    # use string identity
+    access = create_access_token(identity=str(user.id))
+    refresh = create_refresh_token(identity=str(user.id))
     return jsonify({
         'success': True,
         'message': 'Usuário cadastrado com sucesso',
@@ -120,8 +121,8 @@ def login():
         return jsonify({'error': 'Credenciais inválidas'}), 401
 
     login_user(user)  # mantém compatibilidade sessão
-    access = create_access_token(identity=user.id)
-    refresh = create_refresh_token(identity=user.id)
+    access = create_access_token(identity=str(user.id))
+    refresh = create_refresh_token(identity=str(user.id))
     return jsonify({
         'access_token': access,
         'refresh_token': refresh,
@@ -176,8 +177,9 @@ def refresh_token():
         ):
             return jsonify({'error': 'Refresh token reutilizado (replay)'}), 401
         # Issue new tokens
-        new_access = create_access_token(identity=uid)
-        new_refresh = create_refresh_token(identity=uid)
+        uid_str = str(uid) if uid is not None else None
+        new_access = create_access_token(identity=uid_str)
+        new_refresh = create_refresh_token(identity=uid_str)
         new_payload = {'access_token': new_access, 'refresh_token': new_refresh}
         # Mark old refresh as rotated and store revoke list (TTL ~ original exp approximation)
         if r_client and jti:
@@ -275,7 +277,11 @@ def get_user():
 @jwt_required()
 def user_me():
     uid = get_jwt_identity()
-    user = User.query.get(uid)
+    try:
+        uid_int = int(uid) if uid is not None else None
+    except Exception:
+        uid_int = None
+    user = User.query.get(uid_int)
     if not user:
         return jsonify({'success': False, 'message': 'Usuário não encontrado'}), 404
     return jsonify({
@@ -288,6 +294,17 @@ def user_me():
             'has_onboarding': getattr(user, 'has_onboarding', False)
         }
     })
+
+# Compat aliases usados pelo frontend legado (/api/users/me e /api/user/me fora do prefixo /api/auth)
+@auth_bp.route('/users/me', methods=['GET'])
+@jwt_required()
+def users_me_alias():
+    return user_me()
+
+@auth_bp.route('/me', methods=['GET'])
+@jwt_required()
+def me_alias():
+    return user_me()
 
 @auth_bp.route('/onboarding', methods=['POST'])
 def onboarding():
@@ -320,7 +337,11 @@ def debug_users():
 @jwt_required()
 def me_jwt():
     uid = get_jwt_identity()
-    user = User.query.get(uid)
+    try:
+        uid_int = int(uid) if uid is not None else None
+    except Exception:
+        uid_int = None
+    user = User.query.get(uid_int)
     if not user:
         return jsonify({'error': 'Usuário não encontrado'}), 404
     return jsonify({'id': user.id, 'email': user.email, 'name': user.name})

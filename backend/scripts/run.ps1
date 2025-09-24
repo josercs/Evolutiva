@@ -1,6 +1,6 @@
 Param(
     [switch]$SQLite,
-    [string]$Host = "0.0.0.0",
+    [string]$ListenHost = "0.0.0.0",
     [int]$Port = 5000,
     [switch]$UseFlask
 )
@@ -31,7 +31,7 @@ if ($SQLite) {
 if ($UseFlask) {
     $env:FLASK_APP = 'main.py'
     if (-not $env:FLASK_ENV) { $env:FLASK_ENV = 'development' }
-    python -m flask run --host=$Host --port=$Port
+    python -m flask run --host=$ListenHost --port=$Port
 } else {
     python .\main.py
 }

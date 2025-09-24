@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../config";
 import { useState, useEffect } from 'react';
 import CourseCard from '../components/cursos/CourseCard';
 
@@ -15,12 +16,22 @@ const CoursesMilitaresPage = () => {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        // Buscar apenas Matemática, Língua Portuguesa e Redação para curso_id=4
-        const res = await fetch(
-          'http://192.168.0.109:5000/api/courses?curso_id=4&materias=Matemática,Língua%20Portuguesa,Redação'
-        );
+        // Descobrir o ID do curso "Colégios Militares" dinamicamente
+        const rc = await fetch(`${API_BASE_URL}/cursos`);
+        const cursos = await rc.json();
+        const militar = (Array.isArray(cursos) ? cursos : []).find((c: any) => (c?.nome || "").toLowerCase() === "colégios militares" || (c?.nome || "").toLowerCase() === "colegios militares");
+        if (!militar?.id) {
+          setCourses([]);
+          return;
+        }
+        const res = await fetch(`${API_BASE_URL}/materias?course_id=${militar.id}`);
         const data = await res.json();
-        setCourses(data.courses || []);
+        const materias = (data?.materias || []).map((m: any) => ({
+          id: m.id,
+          materia: m.nome,
+          conteudo: "",
+        }));
+        setCourses(materias);
       } catch (error) {
         console.error('Erro ao carregar matérias dos Colégios Militares:', error);
       } finally {

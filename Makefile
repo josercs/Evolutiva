@@ -8,6 +8,17 @@ COMPOSE?=docker compose
 build:
 	$(COMPOSE) build
 
+# Limpa artefatos pesados do backend antes de build (virtualenvs e node_modules acidentais)
+clean-context:
+	powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/trim_build_context.ps1 || true
+
+# Limpa + build (atalho)
+build-fast: clean-context verify-context build
+
+# Apenas verifica tamanho do contexto (warn se > WARN_MB, falha se > FAIL_MB)
+verify-context:
+	powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/monitor_build_size.ps1 || true
+
 up:
 	$(COMPOSE) up -d
 

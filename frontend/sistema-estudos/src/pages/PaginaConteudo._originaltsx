@@ -44,7 +44,7 @@ const motivationalPhrases = [
   "Não desista, você está quase lá! 🔥",
 ];
 
-const API_BASE_URL = "http://localhost:5000";
+import { API_BASE_URL } from "../../config";
 
 /**
  * Página principal de exibição de conteúdo de estudo.
@@ -133,7 +133,7 @@ const PaginaConteudo = () => {
     const fetchContent = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`http://localhost:5000/api/conteudo_html/${id}`);
+  const response = await fetch(`${API_BASE_URL}/conteudo_html/${id}`);
         if (!response.ok) throw new Error("Conteúdo não encontrado");
         const data = await response.json();
         setConteudo(data);
@@ -209,7 +209,7 @@ const PaginaConteudo = () => {
     setShowQuiz(true);
     setQuizLoading(true); // Inicia o loading
     try {
-      const res = await fetch(`http://localhost:5000/api/generate_quiz/${id}`);
+  const res = await fetch(`${API_BASE_URL}/generate_quiz/${id}`);
       if (!res.ok) throw new Error("Erro ao buscar quiz");
       const data = await res.json();
       setQuizQuestions(data.questions || []);
@@ -307,7 +307,7 @@ const PaginaConteudo = () => {
   const handleFeynmanFeedback = async (texto: string) => {
     setFeynmanFeedback("Carregando feedback...");
     try {
-      const res = await fetch("http://localhost:5000/api/gemini_feynman", {
+  const res = await fetch(`${API_BASE_URL}/gemini_feynman`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ texto, conteudo: conteudo?.content_html }),
@@ -339,7 +339,7 @@ const PaginaConteudo = () => {
   // Após mostrar o resultado do quiz:
   useEffect(() => {
     if (showResults && quizQuestions.length > 0) {
-      fetch("http://localhost:5000/api/quiz_feedback", {
+  fetch(`${API_BASE_URL}/quiz_feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

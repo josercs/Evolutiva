@@ -54,3 +54,5 @@ def listar_conteudos_por_materia(materia_id):
             for c in conteudos
         ]
     })
+
+# (temporary debug endpoint removed)

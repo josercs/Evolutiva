@@ -18,11 +18,27 @@ config = context.config
 fileConfig(config.config_file_name)
 
 def get_url():
+    # Prefer explicit env var
     uri = os.getenv('SQLALCHEMY_DATABASE_URI')
-    if not uri:
-        # fallback to sqlite dev.db in src
-        uri = f"sqlite:///{os.path.join(BASE_DIR, 'dev.db')}"
-    return uri
+    use_sqlite = os.getenv('USE_SQLITE', 'false').lower() in {'1','true','yes'}
+    if uri:
+        return uri
+    if use_sqlite:
+        return f"sqlite:///{os.path.join(BASE_DIR, 'dev.db')}"
+
+    # Build Postgres URI from DB_* env like the app does
+    db_user = os.getenv('DB_USERNAME') or os.getenv('DB_USER') or os.getenv('POSTGRES_USER', 'postgres')
+    db_pass = os.getenv('DB_PASSWORD') or os.getenv('POSTGRES_PASSWORD', 'postgres')
+    db_host = os.getenv('DB_HOST', 'localhost')
+    # If running in Docker and DB_HOST points to localhost, redirect to host.docker.internal
+    try:
+        if os.path.exists('/.dockerenv') and db_host in {'127.0.0.1', 'localhost'}:
+            db_host = 'host.docker.internal'
+    except Exception:
+        pass
+    db_port = os.getenv('DB_PORT', '5432')
+    db_name = os.getenv('DB_NAME') or os.getenv('POSTGRES_DB', 'postgres')
+    return f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 
 config.set_main_option('sqlalchemy.url', get_url())
 

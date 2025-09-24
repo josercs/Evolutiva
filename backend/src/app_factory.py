@@ -67,12 +67,20 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(cfg)
 
-    # Secure cookie defaults (can be overridden by env):
-    app.config.setdefault('SESSION_COOKIE_SECURE', cfg.ENVIRONMENT == 'production')
+    # Secure cookie defaults (overridable via env)
+    _sess_secure_env = os.getenv('SESSION_COOKIE_SECURE')
+    if _sess_secure_env is not None:
+        app.config['SESSION_COOKIE_SECURE'] = _sess_secure_env.lower() in {'1','true','yes'}
+    else:
+        app.config.setdefault('SESSION_COOKIE_SECURE', cfg.ENVIRONMENT == 'production')
     app.config.setdefault('SESSION_COOKIE_HTTPONLY', True)
     app.config.setdefault('SESSION_COOKIE_SAMESITE', 'Lax')
     # JWT cookie mode not yet enabled (still header based) but prepare flags
-    app.config.setdefault('JWT_COOKIE_SECURE', cfg.ENVIRONMENT == 'production')
+    _jwt_secure_env = os.getenv('JWT_COOKIE_SECURE')
+    if _jwt_secure_env is not None:
+        app.config['JWT_COOKIE_SECURE'] = _jwt_secure_env.lower() in {'1','true','yes'}
+    else:
+        app.config.setdefault('JWT_COOKIE_SECURE', cfg.ENVIRONMENT == 'production')
     app.config.setdefault('JWT_COOKIE_SAMESITE', 'Lax')
     app.config.setdefault('JWT_COOKIE_CSRF_PROTECT', False)
 
@@ -92,12 +100,50 @@ def create_app():
             db_user = os.getenv('DB_USERNAME', 'postgres')
             db_pass = os.getenv('DB_PASSWORD', '1234')
             db_host = os.getenv('DB_HOST', 'localhost')
+            # If running in Docker and pointing to localhost, use host.docker.internal to reach host's Postgres
+            if os.path.exists('/.dockerenv') and db_host in {'127.0.0.1','localhost'}:
+                db_host = 'host.docker.internal'
             db_port = os.getenv('DB_PORT', '5432')
             db_name = os.getenv('DB_NAME', 'sistema_estudos')
             app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}'
+    # (debug log removed)
 
     # Sempre inicializar DB (independente de Postgres/SQLite)
     db.init_app(app)
+
+    # Self-heal: ensure users.dias_disponiveis is JSON/JSONB in Postgres
+    # Controlled via DB_SELFHEAL_JSONB (default: enabled). Safe no-op if already JSON/JSONB.
+    try:
+        if os.getenv('DB_SELFHEAL_JSONB', '1').lower() in {'1','true','yes'} and not cfg.USE_SQLITE:
+            with app.app_context():
+                try:
+                    from sqlalchemy import text as _sql_text
+                    res = db.session.execute(_sql_text(
+                        """
+                        SELECT data_type, udt_name
+                        FROM information_schema.columns
+                        WHERE table_schema = COALESCE(current_schema(), 'public')
+                          AND table_name = 'users'
+                          AND column_name = 'dias_disponiveis'
+                        """
+                    )).first()
+                    dt = (res[0].lower(), (res[1] or '').lower()) if res else (None, None)
+                    if not dt[0] or dt[0] not in ('json','jsonb'):
+                        db.session.execute(_sql_text(
+                            """
+                            ALTER TABLE users
+                            ALTER COLUMN dias_disponiveis TYPE JSONB
+                            USING to_jsonb(dias_disponiveis)
+                            """
+                        ))
+                        db.session.commit()
+                        logging.info('DB self-heal: users.dias_disponiveis converted to JSONB')
+                    else:
+                        logging.debug('DB self-heal: users.dias_disponiveis already %s', dt[0])
+                except Exception as _e:
+                    logging.warning('DB self-heal skipped/failed: %s', _e)
+    except Exception:
+        pass
 
     # create_all somente permitido explicita/claramente (não forçar em production)
     auto_ddl = os.getenv('AUTO_DDL_ON_START','0').lower() in {'1','true','yes'}
@@ -200,22 +246,43 @@ def create_app():
     # Register existing blueprints
     from routes.auth_routes import auth_bp
     from routes.user_routes import user_bp, users_bp
+    from routes.usuarios_routes import usuarios_bp
     from routes.agendas import agendas_bp
     from routes.habitos import habitos_bp
-    from routes.content_routes import content_bp
-    from routes.progress_routes import progress_bp
+    from routes.content_routes import content_bp, content_public_bp
+    from routes.progress_routes import progress_bp, progresso_bp
     from routes.course_routes import course_bp
     from routes.onboarding_routes import onboarding_bp
     from routes.quiz_gen_routes import bp_quiz_gen
     from routes.videos_routes import videos_bp
     from routes.ai_routes import ai_bp
     from routes import v1_bp
+    from routes.compat_me_routes import compat_me_bp
+    from routes.dev_tools import dev_tools_bp
 
-    for bp in (auth_bp, user_bp, users_bp, agendas_bp, habitos_bp, content_bp, progress_bp, course_bp, onboarding_bp, bp_quiz_gen, videos_bp, ai_bp, v1_bp):
+    for bp in (auth_bp, user_bp, users_bp, usuarios_bp, agendas_bp, habitos_bp, content_bp, content_public_bp, progress_bp, progresso_bp, course_bp, onboarding_bp, bp_quiz_gen, videos_bp, ai_bp, v1_bp, compat_me_bp, dev_tools_bp):
         try:
             app.register_blueprint(bp)
         except Exception as e:
             logging.warning(f"Falha ao registrar blueprint {getattr(bp,'name',bp)}: {e}")
+
+    # Dev: auto seed minimal data (idempotent) if enabled via env
+    try:
+        if os.getenv('DEV_AUTOCREATE_DATA', '0').lower() in {'1','true','yes'}:
+            with app.app_context():
+                try:
+                    import sys as _sys
+                    _base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))  # /app
+                    if _base_dir not in _sys.path:
+                        _sys.path.insert(0, _base_dir)
+                    from scripts.seed_data import seed  # type: ignore
+                    result = seed()
+                    if any(result.values()):
+                        logging.info(f"DEV seed applied: {result}")
+                except Exception as se:  # pragma: no cover
+                    logging.warning(f"DEV seed failed: {se}")
+    except Exception:
+        pass
 
     # Simple health legacy
     @app.route('/api/health')
@@ -231,6 +298,11 @@ def create_app():
             'uptime_seconds': int(time.time() - _APP_START_TS),
             'db_ok': db_ok
         })
+
+    # Ultra-fast liveness (no DB) for container orchestrators / probes
+    @app.route('/api/ping')
+    def ping():  # pragma: no cover - trivial
+        return jsonify({'pong': True, 'uptime': int(time.time() - _APP_START_TS)})
 
     # Index
     @app.route('/')

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import { apiFetch } from "../apiClient";
 
 const DAYS = 30;
 
@@ -13,7 +13,7 @@ export default function SeinfeldCalendar() {
 
     const handleCheck = async (idx: number) => {
         try {
-            await axios.post("/api/habitos/checkin", { day: idx + 1 });
+            await apiFetch('/api/habitos/checkin', { method: 'POST', body: JSON.stringify({ day: idx + 1 }), auth: true, headers: { 'Content-Type': 'application/json' } });
             setChecked((prev) => {
                 const next = [...prev];
                 next[idx] = true;

@@ -41,12 +41,16 @@ const playSound = (type: 'correct' | 'error' | 'pomodoro-end' | 'pomodoro-start'
     // Implemente a lógica real de som aqui
 };
 
-// Função auxiliar para mostrar feedback visual animado de XP
+// Função auxiliar para mostrar feedback visual animado de XP (com cleanup)
 const showXPFloat = (text: string) => {
     const xpTag = document.createElement("div");
     xpTag.textContent = text + " 🎉";
-    xpTag.className = "xp-float-anim fixed top-24 right-8 select-none";
+    xpTag.className = "xp-float-anim fixed top-24 right-8 select-none pointer-events-none animate-fade-in";
     document.body.appendChild(xpTag);
+    // Remove após animação (~2s) evitando acúmulo no DOM
+    setTimeout(() => {
+        try { xpTag.remove(); } catch { /* noop */ }
+    }, 2000);
 };
 
 /**
@@ -135,25 +139,7 @@ const PaginaConteudoOtimizada: React.FC = () => {
     // Alterna exibição das dicas de estudo
     const toggleTipsCallback = useCallback(() => setShowTips(prev => !prev), []);
 
-    // Gera um resumo simples do conteúdo (primeiras frases)
-    const summaryContent = useMemo(() => {
-        if (activeTab !== 'summary' || !conteudo?.content_html) return "Resumo indisponível.";
-
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = conteudo.content_html;
-        const contentText = tempDiv.innerText || "";
-        const sentences = contentText.split(/[.!?]+/).filter(s => s.trim().length > 10);
-        const keySentences = sentences.slice(0, 5);
-        if (keySentences.length === 0) return "Não foi possível gerar um resumo simples.";
-        return (
-            <>
-                <p className="mb-2">Resumo do tópico "{conteudo.topic}":</p>
-                <ul className="list-disc list-inside space-y-1">
-                    {keySentences.map((s, i) => <li key={i}>{s}.</li>)}
-                </ul>
-            </>
-        );
-    }, [activeTab, conteudo?.content_html, conteudo?.topic]);
+    // Geração local de questões removida: usamos o backend via `quizHook` (Gemini) para gerar quizzes.
 
     // Memoiza o conteúdo de perguntas/anotações para evitar re-renderizações desnecessárias
     const qaContent = useMemo(() => (
@@ -324,11 +310,44 @@ const PaginaConteudoOtimizada: React.FC = () => {
                         <StudyTabs
                             activeTab={activeTab}
                             setActiveTab={setActiveTab}
-                            summaryContent={summaryContent}
+                            summaryContent={(
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-slate-900">Quiz do conteúdo</h3>
+                                            <p className="text-sm text-slate-600">Perguntas geradas automaticamente pelo sistema (IA Gemini).</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={quizHook.generateQuiz} disabled={quizHook.quizLoading} className="px-3 py-1.5 rounded-md text-sm border bg-blue-600 text-white hover:bg-blue-700">
+                                                {quizHook.quizLoading ? 'Gerando…' : 'Gerar novo quiz'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {!quizHook.quizQuestions.length ? (
+                                        <div className="rounded-xl border border-slate-200 p-4 text-slate-600">Clique em “Gerar novo quiz” para começar.</div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="text-sm text-slate-700">Quiz pronto — abra o modal para responder.</div>
+                                                                                                <div>
+                                                                                                        <button
+                                                                                                            onClick={() => quizHook.showQuiz ? quizHook.closeQuiz() : quizHook.openQuiz()}
+                                                                                                            className="px-3 py-1.5 rounded-md text-sm border"
+                                                                                                        >
+                                                                                                            {quizHook.showQuiz ? 'Fechar Quiz' : 'Responder Quiz'}
+                                                                                                        </button>
+                                                                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             qaContent={qaContent}
                             contentDisplay={
                                 <ContentDisplay contentHtml={conteudo.content_html} contentRef={mainContentRef} />
                             }
+                            middleTabLabel="Questões"
+                            renderMiddleHeader={false}
                         />
 
                         {/* Video suggestions related to the topic */}

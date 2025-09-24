@@ -85,6 +85,14 @@ def onboarding():
 # --- Simples cache em memória (use Redis para produção) ---
 plano_cache = {}
 
+def _to_datetime_today(t: dt_time | None):
+    """Converte um objeto time (ou None) em datetime hoje às HH:MM.
+    Se t for None retorna hoje 08:00.
+    """
+    base = t or dt_time(8, 0)
+    today = datetime.today().date()
+    return datetime.combine(today, base)
+
 # --- Função auxiliar para gerar plano sem IA ---
 def gerar_plano_estudo_script(user, conteudos):
     plano = {}
@@ -99,10 +107,17 @@ def gerar_plano_estudo_script(user, conteudos):
     else:
         blocos = max(1, tempo_total_min // 40)
 
-    try:
-        horario_inicio = datetime.strptime(user.horario_inicio or "08:00", "%H:%M")
-    except Exception:
-        horario_inicio = datetime.strptime("08:00", "%H:%M")
+    # horario_inicio pode ser datetime.time armazenado em User; evita usar strptime nesse caso
+    if getattr(user, 'horario_inicio', None) and isinstance(user.horario_inicio, dt_time):
+        horario_inicio = _to_datetime_today(user.horario_inicio)
+    else:
+        # fallback para string ou default
+        valor = user.horario_inicio if isinstance(user.horario_inicio, str) else "08:00"
+        try:
+            h, m = map(int, str(valor).split(":")[:2])
+            horario_inicio = _to_datetime_today(dt_time(h, m))
+        except Exception:
+            horario_inicio = _to_datetime_today(dt_time(8, 0))
 
     dias = user.dias_disponiveis or ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"]
     if isinstance(dias, str):

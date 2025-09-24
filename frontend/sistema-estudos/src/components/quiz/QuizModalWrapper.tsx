@@ -1,21 +1,26 @@
 import React from 'react';
 import { ModalQuiz } from './ModalQuiz';
 
-interface QuizQuestion {
+type QuizQuestion = {
+    id?: string;
+    type: 'mcq' | 'tf' | 'cloze';
     question: string;
-    options: string[];
-    answer: string;
+    options?: string[];
+    answer?: number | boolean | string;
+    explanation?: string;
+    difficulty?: string;
+    format?: string;
 }
 
 interface QuizModalWrapperProps {
     showQuiz: boolean;
     quizQuestions: QuizQuestion[];
     quizLoading: boolean;
-    selectedAnswers: { [key: number]: number };
+    selectedAnswers: { [key: number]: number | boolean | string };
     showResults: boolean;
     quizFeedback: string;
     isSubmitting: boolean;
-    handleSelectAnswer: (questionIdx: number, optionIdx: number) => void;
+    handleSelectAnswer: (questionIdx: number, optionIdx: number | boolean | string) => void;
     handleSubmitQuiz: () => void;
     closeQuiz: () => void;
     currentQuizIdx: number;

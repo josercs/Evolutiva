@@ -16,7 +16,8 @@ type ConteudoHtml = {
   is_completed?: boolean;
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import { API_BASE_URL as BASE } from "../../config";
+const API_BASE_URL = BASE; // '/api' por padrão via config.ts
 
 export const useContentLoader = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,7 +31,7 @@ export const useContentLoader = () => {
     if (!id || !conteudo || !userId) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/conteudos/concluir`, {
+      const response = await fetch(`${API_BASE_URL}/conteudos/concluir`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -65,11 +66,22 @@ export const useContentLoader = () => {
       try {
         setLoading(true);
         // Busca o conteúdo principal
-        const response = await fetch(`${API_BASE_URL}/api/conteudo_html/${id}`, {
-          credentials: 'include'
-        });
+        // Public endpoint: no credentials to simplify CORS
+    const response = await fetch(`${API_BASE_URL}/conteudo_html/${id}`);
         if (!response.ok) throw new Error("Conteúdo não encontrado");
-        const data = await response.json();
+        let data: any;
+        const ct = response.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          data = await response.json();
+        } else {
+          const text = await response.text();
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            console.error('Resposta não-JSON recebida do backend em /api/conteudo_html:', text?.slice(0, 300));
+            throw e;
+          }
+        }
         setConteudo(data);
 
         // Carrega notas salvas localmente

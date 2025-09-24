@@ -15,6 +15,8 @@ CORE_MODULES = [
     "dotenv",
     "pydantic",
     "requests",
+    "redis",
+    "rq",
 ]
 
 OPTIONAL_BEST_EFFORT = [

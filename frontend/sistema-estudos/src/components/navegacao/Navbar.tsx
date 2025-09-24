@@ -6,9 +6,9 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { useUser } from "../../contexts/UserContext";
 import { useUserAvatar } from "../../hooks/useUserAvatar";
+import { API_BASE_URL } from "../../../config";
 
 // --- Funções utilitárias e constantes ---
-const API_BASE_URL = "http://localhost:5000";
 
 // --- Sistema de notificações ---
 import { useNotification } from "../notificacoes/NotificationProvider";
@@ -356,7 +356,7 @@ const NavbarModernized = () => {
     formData.append("email", user.email);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/usuarios/avatar`, {
+  const res = await fetch(`${API_BASE_URL}/usuarios/avatar`, {
         method: "POST",
         body: formData,
       });

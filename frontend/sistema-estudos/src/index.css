@@ -59,12 +59,7 @@
     --animation-duration-slow: 1s;
   }
 
-  @font-face {
-    font-family: 'Inter';
-    font-style: normal;
-    font-weight: 400;
-    src: url('https://fonts.gstatic.com/s/inter/v3/UcCO4F8a0b1k5d2e4f7g.woff2') format('woff2');
-  }
+  /* Use Google Fonts import above; remove direct font URL to avoid 404s */
   body {
     font-family: 'Inter', sans-serif;
     background-color: var(--surface);

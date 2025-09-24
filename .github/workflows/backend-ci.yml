@@ -1,0 +1,80 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      USE_SQLITE: 1
+      AUTO_DDL_ON_START: 1
+      SECRET_KEY: test-secret
+      JWT_SECRET_KEY: test-jwt
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/src/requirements.txt
+
+      - name: Install dependencies (backend root)
+        if: ${{ hashFiles('backend/requirements.txt') != '' }}
+        run: pip install -r backend/requirements.txt
+
+      - name: Install dependencies (backend/src)
+        if: ${{ hashFiles('backend/src/requirements.txt') != '' }}
+        run: pip install -r backend/src/requirements.txt
+
+      - name: Install test tooling
+        run: pip install pytest ruff black
+
+      - name: Lint (ruff)
+        run: ruff check backend/src || (echo "Ruff found issues" && exit 1)
+
+      - name: Format check (black)
+        run: black --check backend/src
+
+      - name: Run tests
+        working-directory: backend/src
+        run: pytest -q
+
+      - name: Upload pytest results (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-logs
+          path: backend/src/.pytest_cache
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps for scan
+        run: |
+          pip install safety || true
+          pip install -r backend/requirements.txt || true
+
+      - name: Safety scan
+        run: safety check || true

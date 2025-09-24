@@ -1,0 +1,68 @@
+# Reduce Docker build context size
+# Virtual environments
+.venv
+venv
+.env
+.env.*
+
+# Python caches
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.cache/
+**/__pycache__/
+**/.pytest_cache/
+
+# Defensive ignore of any nested virtualenvs accidentally created inside src or elsewhere
+**/venv/
+**/.venv/
+src/venv/
+
+# Local databases & state
+*.db
+*.sqlite
+*.sqlite3
+dev.db
+
+# Logs & temp
+*.log
+*.tmp
+*.swp
+
+# Distribution / build artifacts
+build
+dist
+*.egg-info/
+
+# Git & CI metadata
+.git
+.gitignore
+.gitattributes
+.github/
+
+# IDE / tooling
+.vscode/
+.idea/
+*.code-workspace
+
+# Coverage / reports
+htmlcov/
+.coverage*
+reports/
+
+# Uploads or generated media (if any placed inside backend later)
+uploads
+
+# Avoid copying any local site-packages accidentally vendored (rare but defensive)
+**/site-packages/
+
+# Node / JS leftovers (defensive if copied here)
+node_modules/
+**/node_modules/
+
+# Misc
+.DS_Store
+Thumbs.db

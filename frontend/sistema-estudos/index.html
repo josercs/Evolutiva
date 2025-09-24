@@ -1,23 +1,12 @@
-<!-- filepath: d:\Projetos\sistema_estudos_core\frontend\sistema-estudos\index.html -->
 <!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sistema de Estudos</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-    <!-- Fonts: Inter (texto) e Poppins (títulos/branding) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet" />
-    <!-- MathJax -->
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    
-    <!-- Se precisar de jQuery para alguns scripts -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- No external scripts; CSP permits only self and allowed CDNs via nginx. -->
+    <head>
   </head>
-  <body>
+    <!-- No external scripts; CSP permits only self and allowed CDNs via nginx. -->
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

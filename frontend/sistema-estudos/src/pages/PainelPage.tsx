@@ -2,10 +2,10 @@ import React, { useEffect, useReducer, useState } from "react";
 import { Progress } from "../components/ui/progress";
 import confetti from "canvas-confetti";
 import { motion } from "framer-motion";
-import UserProgressDashboard from "../components/UserProgressDashboard";
 import { Calendar } from "../components/ui/calendar";
 import ptBR from "date-fns/locale/pt-BR";
 import { Button } from "../components/ui/button";
+import { useLocation } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -243,6 +243,7 @@ const StatCard = ({
 
 // Componente principal
 const PainelPage: React.FC = () => {
+  const location = useLocation();
   const userId = localStorage.getItem("userId");
   const cursoId = localStorage.getItem("cursoId");
   const {
@@ -305,6 +306,20 @@ const PainelPage: React.FC = () => {
       return dt >= start && dt <= end;
     });
   }, [plano]);
+
+  // Snapshot semanal dinâmico (blocos, concluidos e duração total em minutos)
+  const semana = React.useMemo(() => {
+    const days = planoSemanaDays;
+    const totalBlocks = days.reduce((acc, d) => acc + (d.blocks?.length || 0), 0);
+    const concl = days.reduce((acc, d) => acc + (d.blocks || []).filter(b => b.status === "ok" || b.completed).length, 0);
+    const minutes = days.reduce((acc, d) => acc + (d.blocks || []).reduce((s, b) => s + (b.duration || 0), 0), 0);
+    return {
+      daysStudied: days.filter(d => d.blocks?.length).length,
+      totalBlocks,
+      concl,
+      minutes,
+    };
+  }, [planoSemanaDays]);
 
   // Buscar dados do plano de estudo
   useEffect(() => {
@@ -384,6 +399,17 @@ const PainelPage: React.FC = () => {
       fetchAllData();
     }
   }, [loading]);
+
+  // Scroll to weekly quiz when hash is present
+  useEffect(() => {
+    if (location.hash === '#revisao-semanal') {
+      // small delay to ensure the element exists after render
+      const t = setTimeout(() => {
+        document.getElementById('revisao-semanal')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [location.hash]);
 
   // Calcular progresso geral
   const materiasComProgresso = React.useMemo(() =>
@@ -539,23 +565,31 @@ const PainelPage: React.FC = () => {
   }
 
   return (
-  <main className="relative ml-sidebar pt-20 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <main className="relative ml-sidebar pt-20 max-w-6xl mx-auto px-4 md:px-6 py-8 space-y-8">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(900px_500px_at_10%_-10%,rgba(14,165,233,0.06),transparent),radial-gradient(700px_420px_at_95%_-5%,rgba(37,99,235,0.05),transparent)]" />
-      <div className="max-w-3xl mx-auto space-y-8">
-      {/* Cabeçalho */}
-      <header className="text-center space-y-2">
-        <motion.h1 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-3xl font-bold text-gray-900 dark:text-white"
-        >
-          Meu Progresso
-        </motion.h1>
-        {curso && (
-          <p className="text-gray-600 dark:text-gray-400">
-            Curso atual: <span className="font-medium text-blue-600 dark:text-blue-400">{curso}</span>
-          </p>
-        )}
+
+      {/* HERO / Cabeçalho premium */}
+      <header className="rounded-3xl overflow-hidden bg-gradient-to-r from-sky-50 via-cyan-50 to-blue-50 border border-blue-100/60">
+        <div className="px-6 py-8 md:px-10 md:py-10 text-center">
+          <p className="text-sm text-slate-600">Meu Progresso</p>
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-1 text-2xl md:text-[2rem] font-extrabold tracking-tight"
+          >
+            <span className="bg-gradient-to-r from-sky-600 to-blue-700 bg-clip-text text-transparent">Olá!</span>{" "}
+            bem-vindo de volta ao seu painel
+          </motion.h1>
+          {curso && (
+            <p className="mt-3 text-slate-600">
+              Curso atual: <span className="font-semibold text-sky-700">{curso}</span>
+            </p>
+          )}
+          <div className="mt-6 flex flex-wrap gap-3 justify-center">
+            <Button className="bg-blue-600 hover:bg-blue-700">Continuar estudando</Button>
+            <Button variant="outline" className="border-blue-200">Ver trilha da semana</Button>
+          </div>
+        </div>
       </header>
 
       {/* Seção de Pendências */}
@@ -698,6 +732,32 @@ const PainelPage: React.FC = () => {
         />
       </section>
 
+      {/* Snapshot semanal + Revisão */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        <div className="col-span-1 lg:col-span-2 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col">
+          <div className="px-6 py-5 border-b border-slate-100">
+            <h2 className="text-lg font-semibold text-slate-900">Cronograma da Semana</h2>
+            <p className="text-sm text-slate-500">Resumo do que está planejado</p>
+          </div>
+          <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+            <div className="rounded-xl bg-sky-50 border border-sky-100 p-4">
+              <p className="text-xs text-slate-600 mb-1">Dias estudados</p>
+              <p className="text-2xl font-semibold text-sky-700">{semana.daysStudied}/7</p>
+            </div>
+            <div className="rounded-xl bg-cyan-50 border border-cyan-100 p-4">
+              <p className="text-xs text-slate-600 mb-1">Blocos desta semana</p>
+              <p className="text-2xl font-semibold text-cyan-700">{semana.concl}/{semana.totalBlocks}</p>
+            </div>
+            <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
+              <p className="text-xs text-slate-600 mb-1">Horas somadas</p>
+              <p className="text-2xl font-semibold text-blue-700">{Math.floor(semana.minutes/60)}h {semana.minutes%60}min</p>
+            </div>
+          </div>
+        </div>
+
+  {/* Revisão da semana foi movida para a página "/questoes" */}
+      </section>
+
       {/* Seção de progresso por matéria */}
       <section className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center mb-6">
@@ -766,7 +826,7 @@ const PainelPage: React.FC = () => {
       </section>
 
       {/* Cards de Atividades e Resumo Semanal */}
-  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         {/* Card: Atividades */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -807,13 +867,13 @@ const PainelPage: React.FC = () => {
                 const matchesTipo = tipoFiltro ? normalize(block.activity_type) === normalize(tipoFiltro) : true;
                 return matchesMateria && matchesTipo && !block.completed;
               }) || [];
-              
+
               if (blocos.length === 0) {
                 return (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
                     <p>Nenhuma atividade planejada para este dia</p>
-                    <Button 
-                      variant="link" 
+                    <Button
+                      variant="link"
                       className="mt-2 text-blue-600 dark:text-blue-400 gap-1"
                       onClick={() => setIsAddingActivity(true)}
                     >
@@ -822,7 +882,7 @@ const PainelPage: React.FC = () => {
                   </div>
                 );
               }
-              
+
               return (
                 <ul className="space-y-3">
                   {blocos.map((block, idx) => (
@@ -848,15 +908,15 @@ const PainelPage: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
                         >
                           Editar
                         </Button>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50"
                           onClick={() => marcarAtividadeComoConcluida(block)}
@@ -870,25 +930,24 @@ const PainelPage: React.FC = () => {
               );
             })()}
           </div>
+        </div>
         {/* Card: Resumo Semanal */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
           <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Resumo Semanal</h3>
           <div className="grid grid-cols-1 gap-4 text-center">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Dias estudados</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">5/7</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{semana.daysStudied}/7</p>
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Horas esta semana</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">12h 45min</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{Math.floor(semana.minutes/60)}h {semana.minutes%60}min</p>
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tarefas concluídas</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">18/25</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{semana.concl}/{semana.totalBlocks}</p>
             </div>
           </div>
-        </div>
-        </div>
         </div>
       </div>
     </main>

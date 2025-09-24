@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { toast } from "react-toastify";
 
-const API_BASE_URL = "http://localhost:5000"; // Mover para .env
+import { API_BASE_URL } from "../../config";
 
 interface UseFeynmanProps {
   contentHtml: string | undefined | null; // Conteúdo HTML para contexto
@@ -28,7 +28,7 @@ export const useFeynman = ({ contentHtml }: UseFeynmanProps) => {
     setFeynmanFeedback("Carregando feedback da IA...");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/gemini_feynman`, {
+  const res = await fetch(`${API_BASE_URL}/gemini_feynman`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ texto: feynmanText, conteudo: contentHtml || "" }), // Envia string vazia se contexto for null/undefined

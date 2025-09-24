@@ -84,7 +84,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setAvatarUrl("");
       return;
     }
-    fetch(`${API_BASE_URL}/api/usuarios/avatar?email=${encodeURIComponent(user.email)}`)
+    fetch(`${API_BASE_URL}/usuarios/avatar?email=${encodeURIComponent(user.email)}`)
       .then(res => res.json())
       .then(data => setAvatarUrl(data.avatarUrl || ""))
       .catch(() => setAvatarUrl(""));

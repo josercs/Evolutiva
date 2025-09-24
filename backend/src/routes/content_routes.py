@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
-from models.models import db, CompletedContent, SubjectContent
+from models.models import db, CompletedContent, SubjectContent, HorariosEscolares
 
 content_bp = Blueprint('content', __name__, url_prefix='/api/conteudos')
+content_public_bp = Blueprint('content_public', __name__)
 
 # Listar conteúdos de uma matéria por ID
 @content_bp.route('/materia/<int:materia_id>', methods=['GET'])
@@ -32,3 +33,32 @@ def concluir_conteudo():
         db.session.add(cc)
         db.session.commit()
     return jsonify({"success": True})
+
+# Public endpoint to fetch full HTML content by id (compat with existing frontend)
+@content_public_bp.route('/api/conteudo_html/<int:conteudo_id>', methods=['GET'])
+def get_conteudo_html(conteudo_id: int):
+    try:
+        row = (
+            db.session.query(
+                SubjectContent.id,
+                SubjectContent.subject,
+                SubjectContent.topic,
+                SubjectContent.content_html,
+                HorariosEscolares.materia,
+            )
+            .join(HorariosEscolares, SubjectContent.materia_id == HorariosEscolares.id)
+            .filter(SubjectContent.id == conteudo_id)
+            .first()
+        )
+        if row:
+            return jsonify({
+                "id": row[0],
+                "subject": row[1],
+                "topic": row[2],
+                "content_html": row[3],
+                "materia": row[4],
+            })
+        else:
+            return jsonify({"error": "Conteúdo não encontrado"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

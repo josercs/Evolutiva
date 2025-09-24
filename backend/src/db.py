@@ -22,11 +22,19 @@ def get_db_connection():
             raise RuntimeError(f"Falha ao obter conexão via SQLAlchemy: {e}")
 
     # Default: Postgres via psycopg2
+    # Choose default host depending on environment: 'db' in Docker, 'localhost' otherwise
+    in_docker = os.path.exists('/.dockerenv') or os.getenv('DOCKER') == '1'
+    # Prefer 'host.docker.internal' when running in Docker and env points to localhost
+    env_host = os.getenv('DB_HOST')
+    if in_docker and (env_host in {None, '', 'localhost', '127.0.0.1'}):
+        default_host = 'host.docker.internal'
+    else:
+        default_host = 'db' if in_docker else 'localhost'
     return psycopg2.connect(
         dbname=os.getenv('DB_NAME', 'sistema_estudos'),
         user=os.getenv('DB_USERNAME', 'postgres'),
         password=os.getenv('DB_PASSWORD', '1234'),
-        host=os.getenv('DB_HOST', 'localhost'),
+        host=os.getenv('DB_HOST', default_host),
         port=os.getenv('DB_PORT', '5432')
     )
 

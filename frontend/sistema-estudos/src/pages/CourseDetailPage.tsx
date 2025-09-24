@@ -1,5 +1,7 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 /* ========= Tipos ========= */
 type Conteudo = {
@@ -294,13 +296,13 @@ const CourseDetailPage: React.FC = () => {
       <div className="max-w-5xl mx-auto px-4 py-12">
         <div className="rounded-2xl border border-slate-200/60 dark:border-white/10 bg-white/90 dark:bg-white/5 backdrop-blur p-6 text-center">
           <p className="text-slate-700 dark:text-slate-200">Matéria não informada.</p>
-          <button
+          <Button
             type="button"
             onClick={() => navigate(-1)}
             className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-sky-600 to-blue-500 text-white text-sm font-semibold shadow-md hover:shadow-lg active:scale-95 transition"
           >
             Voltar
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -319,14 +321,14 @@ const CourseDetailPage: React.FC = () => {
         <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
           Conteúdos de <span className="capitalize">{materiaId}</span>
         </h1>
-        <button
+        <Button
           type="button"
           onClick={() => navigate(-1)}
-      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/5 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-sm hover:bg-slate-900/10 dark:hover:bg-white/15 transition"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/5 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-sm hover:bg-slate-900/10 dark:hover:bg-white/15 transition"
           aria-label="Voltar"
         >
           ← Voltar
-        </button>
+        </Button>
       </div>
 
       {/* Toolbar sticky */}
@@ -337,7 +339,7 @@ const CourseDetailPage: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-3">
                 {/* Busca */}
                 <div className="relative w-full sm:max-w-xl">
-                  <input
+                  <Input
                     type="text"
                     placeholder="Buscar conteúdo..."
                     value={search}
@@ -346,14 +348,15 @@ const CourseDetailPage: React.FC = () => {
                     aria-label="Buscar conteúdo"
                   />
                   {search && (
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white text-sm"
+                      variant="ghost"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white text-sm p-1 h-auto"
                       aria-label="Limpar busca"
                     >
                       ✕
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {/* Ordenação */}
@@ -406,13 +409,13 @@ const CourseDetailPage: React.FC = () => {
       {error ? (
         <div className="mt-6 rounded-2xl border border-rose-200/60 dark:border-rose-400/30 bg-rose-50/80 dark:bg-rose-400/10 p-6 text-center">
           <p className="text-rose-700 dark:text-rose-300">{error}</p>
-          <button
+          <Button
             type="button"
             onClick={() => window.location.reload()}
             className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-sky-600 to-blue-500 text-white text-sm font-semibold shadow-md hover:shadow-lg active:scale-[0.99] transition"
           >
             Tentar novamente
-          </button>
+          </Button>
         </div>
       ) : loading ? (
         <ul className="mt-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5" aria-busy="true" aria-live="polite">
@@ -435,12 +438,13 @@ const CourseDetailPage: React.FC = () => {
           <span className="text-4xl block mb-2">🔎</span>
           <h3 className="text-base font-medium text-slate-600 dark:text-slate-300">Nenhum conteúdo encontrado.</h3>
           {(search || subjectFilter !== 'Todos') && (
-            <button
+            <Button
               onClick={() => { setSearch(''); setSubjectFilter('Todos'); }}
               className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/5 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-sm hover:bg-slate-900/10 dark:hover:bg-white/15 transition"
+              variant="ghost"
             >
               Limpar filtros
-            </button>
+            </Button>
           )}
         </div>
       ) : (
@@ -463,13 +467,13 @@ const CourseDetailPage: React.FC = () => {
 
           {hasMore && (
             <div className="flex justify-center mt-6">
-              <button
+              <Button
                 type="button"
                 onClick={() => setPage(p => p + 1)}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-sky-600 to-blue-500 text-white text-sm font-semibold shadow-md hover:shadow-lg active:scale-[0.99] transition"
               >
                 Carregar mais
-              </button>
+              </Button>
             </div>
           )}
         </>

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../config";
 import { useState, useEffect } from 'react';
 import CourseCard from '../components/cursos/CourseCard';
 
@@ -12,20 +13,29 @@ const CoursesCTISMPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const res = await fetch('http://192.168.0.109:5000/api/courses?curso_id=3'); // 3 = CTISM
-        const data = await res.json();
-        setCourses(data.courses || []);
-      } catch (error) {
-        console.error('Erro ao carregar matérias do CTISM:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchCourses();
-  }, []);
+    useEffect(() => {
+      const fetchCourses = async () => {
+        try {
+          // Descobrir o ID do curso "CTISM" dinamicamente
+          const rc = await fetch(`${API_BASE_URL}/cursos`);
+          const cursos = await rc.json();
+          const ctism = (Array.isArray(cursos) ? cursos : []).find((c: any) => (c?.nome || "").toLowerCase() === "ctism");
+          if (!ctism?.id) {
+            setCourses([]);
+            return;
+          }
+          const res = await fetch(`${API_BASE_URL}/materias?course_id=${ctism.id}`);
+          const data = await res.json();
+          const materias = (data?.materias || []).map((m: any) => ({ id: m.id, materia: m.nome, conteudo: "" }));
+          setCourses(materias);
+        } catch (error) {
+          console.error('Erro ao carregar matérias do CTISM:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchCourses();
+    }, []);
 
   const filteredCourses = courses.filter(
     (course) =>

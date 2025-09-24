@@ -27,7 +27,7 @@ const UserProgressDashboard = ({
       <div className="flex items-center gap-4">
         {user.avatarUrl ? (
           <img
-            src={user.avatarUrl.startsWith("http") ? user.avatarUrl : `http://localhost:5000${user.avatarUrl}`}
+            src={user.avatarUrl.startsWith("http") ? user.avatarUrl : `${user.avatarUrl}`}
             alt="Avatar"
             className="w-20 h-20 rounded-full border-4 border-white shadow-lg object-cover"
           />
