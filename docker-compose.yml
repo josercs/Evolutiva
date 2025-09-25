@@ -105,8 +105,9 @@ services:
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - webroot:/usr/share/nginx/html:ro
+    # Permite alterar a porta host exportando HTTP_PORT (ex: HTTP_PORT=8080 docker compose up -d)
     ports:
-      - "80:80"
+      - "${HTTP_PORT:-80}:80"
       # ative 443 se tiver certificados:
       # - "443:443"
       # - ./infra/nginx/certs:/etc/nginx/certs:ro
