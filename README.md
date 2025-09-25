@@ -342,6 +342,41 @@ Quando usar:
 - /api/health: checagem completa incluindo tentativa de SELECT 1.
 - /api/v1/health: versão estrutural futura (mantém compatibilidade enquanto migramos).
 
+### 8.1 Checklist Automático Rápido
+
+Scripts de verificação (infra + API + headers + SPA) disponíveis em `scripts/verifica.ps1` (Windows/PowerShell) e `scripts/verifica.sh` (Linux/macOS). Executam checagens:
+
+1. `GET /api/health` → status
+2. `GET /api/ping`
+3. `GET /api/progress` (rota de compatibilidade para evitar 404)
+4. Headers de segurança na raiz (`Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`)
+5. Presença de `index.html` (SPA construída)
+
+Uso (PowerShell):
+```powershell
+./scripts/verifica.ps1
+./scripts/verifica.ps1 -BaseUrl http://localhost:8080 -Json
+```
+
+Uso (bash):
+```bash
+chmod +x scripts/verifica.sh
+./scripts/verifica.sh http://localhost  /api
+./scripts/verifica.sh http://localhost:8080 /api
+```
+
+Saída esperada (exemplo simplificado):
+```
+[OK ] api_health: online
+[OK ] api_ping: {"status":"ok"}
+[OK ] api_progress_root: {...}
+[OK ] security_headers: OK
+[OK ] spa_index: present
+Tudo OK
+```
+
+Código de saída: 0 (sucesso) ou 1 (alguma falha). Integre facilmente em CI/CD adicional ou pré-commit local.
+
 ---
 
 ## 9. Scripts & Automação (PowerShell)
@@ -513,6 +548,27 @@ Stack efetiva: React, React Router, React Query, Tailwind, Lucide Icons, DOMPuri
 
 Removido (bloat): MUI, Radix, libs de formulário duplicadas, múltiplos toasts, axios (migrado para fetch), date-fns, zod (a substituir por pydantic lado servidor).
 
+### 14.0 Cliente HTTP Central (`apiClient.ts`)
+Arquivo: `frontend/sistema-estudos/src/apiClient.ts`
+
+Funções:
+- Wrapper `apiFetch` com suporte a: base dinâmica (`VITE_API_URL`), JSON automático, refresh token (caminho `/api/auth/refresh`), fallback de re-autenticação em 401, e opção `auth: true` para anexar `Bearer`.
+- Remoção de axios → reduz bundle e dependências transitivas.
+- Helpers: `AuthAPI`, `PlanosAPI`, `OnboardingAPI`, chaves React Query (`QueryKeys`).
+
+Configuração:
+Defina `VITE_API_URL` em `.env` do frontend quando necessário (ex: origem separada). Caso contrário, usa chamadas relativas (`/api/...`) permitindo que o Nginx faça o proxy transparente.
+
+Motivação da migração para fetch nativo:
+1. Menos dependências / menor surface área de segurança.
+2. Melhor tree-shaking (sem pacote adicional).
+3. Controle explícito de serialização e erros.
+
+Futuras extensões possíveis:
+- Retry exponencial opcional em erros 5xx.
+- AbortController para cancelamento em transições rápidas de rota.
+- Integração de métricas (timing) via Performance API.
+
 Próximos passos:
 1. Avaliar lazy load de libs pouco usadas (confetti / charts).
 2. Script de auditoria (ts-prune / dep-check).
@@ -627,6 +683,16 @@ docker compose build --no-cache api
 Scripts diretos:
 ```powershell
 .\scripts\start-easy.ps1 -Rebuild -AutoMigrate -Seed
+```
+
+Verificação rápida pós-subida (sanidade):
+```powershell
+./scripts/verifica.ps1 -Json
+```
+
+Em Linux/macOS:
+```bash
+./scripts/verifica.sh
 ```
 
 Auditoria imports:
