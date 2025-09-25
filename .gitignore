@@ -45,6 +45,17 @@ backend/backend_start_err.log
 coverage/
 /.mypy_cache/
 
+# Python bytecode caches (any location)
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Vite caches
+.vite/
+
+# Editor local settings (workspace files)
+*.code-workspace
+
 # Artefatos locais gerados
 *.tsbuildinfo
 frontend/sistema-estudos/tsconfig.*.tsbuildinfo
