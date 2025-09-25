@@ -343,6 +343,28 @@ du -sh backend
 (Get-ChildItem -Recurse backend | Measure-Object Length -Sum).Sum/1MB
 ```
 
+### 12.1 Proxy Nginx & CSP
+
+Funções do Nginx nesta stack:
+- Servir a SPA (estáticos em `/usr/share/nginx/html`).
+- Fazer proxy para a API Flask em `/api` (preserva `Authorization` e a URI completa).
+
+Pontos-chave da configuração (resumo do `infra/nginx/nginx.conf`):
+- DNS dinâmico para containers (evita upstream IPs obsoletos): `resolver 127.0.0.11 valid=10s;`
+- Proxy direto por service name do Compose: `proxy_pass http://api:5000$request_uri;`
+- Encaminha cabeçalhos: `proxy_set_header Authorization $http_authorization;`
+- CSP endurecida: script/style/font/connect restritos a `self` e CDNs específicos (Google Fonts, jsDelivr quando necessário). Evite scripts externos no `index.html`.
+
+Publicação de build (estáticos):
+- O Nginx monta o volume `webroot` como somente-leitura (`:ro`).
+- O serviço `frontend-build` constrói e copia os artefatos para esse volume automaticamente.
+- Alternativa: copiar manualmente o `dist/` local para o volume `webroot` com um contêiner utilitário:
+   - Linux/macOS:
+      ```bash
+      docker run --rm -v "$(pwd)/dist:/src" -v sistema_estudos_core_webroot:/dest alpine sh -lc 'cp -r /src/* /dest/'
+      ```
+   - Windows (PowerShell): use caminhos entre aspas no `-v` e evite `||` (use `if($LASTEXITCODE -ne 0){ ... }`).
+
 ---
 
 ## 13. Segurança & Hardening
@@ -375,6 +397,38 @@ Próximos passos:
 2. Script de auditoria (ts-prune / dep-check).
 3. Análise bundle (vite plugin visualizer).
 
+### 14.1 Build & Publicação
+
+Opção A – via Docker (recomendado):
+```powershell
+# Task VS Code: "frontend: build vite simple"
+docker compose run --rm frontend-build
+```
+
+Opção B – Local (Node instalado):
+```powershell
+cd frontend/sistema-estudos
+npm ci   # ou npm i
+npm run build
+```
+
+Publicar build local no volume `webroot` (Docker rodando):
+- Linux/macOS:
+```bash
+docker run --rm -v "$(pwd)/dist:/src" -v sistema_estudos_core_webroot:/dest alpine sh -lc 'cp -r /src/* /dest/'
+```
+- Windows PowerShell (exemplo simplificado):
+```powershell
+$src = "$(Get-Location)\dist\."
+$cid = (docker compose ps -q nginx).Trim()
+docker cp $src ($cid + ':/usr/share/nginx/html/')  # pode falhar com mount :ro
+# Preferível usar o método do volume acima em vez de copiar direto para o container
+```
+
+Observações:
+- O mount `:ro` do Nginx impede escrita direta dentro do container; publique no volume.
+- A SPA usa base `/api` e evita scripts externos para cumprir a CSP.
+
 ---
 
 ## 15. CI / Pipeline (.github/workflows/ci.yml)
@@ -399,6 +453,10 @@ export USE_SQLITE=1
 cd src
 pytest -q
 ```
+
+Notas adicionais de CI:
+- Workflow `backend-ci.yml` roda lint (ruff), format check (black), testes (SQLite) e segurança (`safety`).
+- Auditoria de imports (AST) pode ser adicionada: `python backend/scripts/check_imports.py --json` (falhar apenas quando `missing_core` não estiver vazio).
 
 ---
 
@@ -465,6 +523,21 @@ Testes backend:
 USE_SQLITE=1 pytest -q
 ```
 
+Limpar caches / artefatos:
+```powershell
+# Windows (interativo por default)
+./scripts/cleanup-caches.ps1 -All
+# Apenas Python e builds (sem Node):
+./scripts/cleanup-caches.ps1 -Python -Dist
+```
+```bash
+# Linux/macOS
+bash scripts/cleanup-caches.sh --all
+# Somente caches Python e dist/
+bash scripts/cleanup-caches.sh --python --dist
+```
+Remove diretórios comuns: node_modules, __pycache__, .pytest_cache, .mypy_cache, dist/, .vite/ e (opcional) virtualenvs e cobertura. Usa confirmações a menos que passe -Yes / -y.
+
 ---
 
 ## Funcionalidades Principais (Resumo)
@@ -498,3 +571,35 @@ Planejado: migrar definitivo para prefixo /api/v1/*
 ---
 
 Contribuições e melhorias são bem-vindas.
+
+---
+
+## Infra & Backend Avançado (Anexo)
+
+### Migrações & Self-heal
+- Alembic configurado para Postgres; baseline e proteções em dev para evitar SQLite acidental.
+- Campo `users.dias_disponiveis`: migração dedicada e auto-correção para JSONB quando detectado `text[]` legado durante o startup.
+- Endpoints de diagnóstico (quando habilitados): `/api/dev/db-info`, `/api/dev/migrate`.
+
+### Mapa de Endpoints (principais)
+- Health: `GET /api/health`, `GET /api/v1/health`, `GET /api/ping`
+- Auth: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`, `GET /api/auth/token/verify`, `GET /api/auth/user/me`
+- Compatibilidade “me”: `GET /api/user/me`, `GET /api/users/me` (tenta JWT e fallback para sessão)
+- Conteúdo:
+   - `GET /api/conteudo_html/{id}` → { id, subject, topic, content_html, materia }
+   - `GET /api/conteudos/materia/{materiaId}`
+   - `POST /api/conteudos/concluir`
+- Progresso (alias legacy `/api/progresso/*`):
+   - `GET /api/progress/materias/{userId}/{cursoId}`
+   - `GET /api/progress/achievements/{userId}`
+   - `GET /api/progress/user/{userId}/curso`
+
+### Conectividade e Proxy
+- Dentro de containers, `localhost` do host é mapeado para `host.docker.internal` pela app.
+- Nginx utiliza DNS do Docker (`127.0.0.11`) com validade curta para evitar cache de IP.
+
+### Troubleshooting rápido
+- Pulls falhando do Docker Hub: rode o frontend localmente, gere `dist/` e publique para o volume `webroot`.
+- 502 entre Nginx e API: valide `api:5000` de dentro do container Nginx; confira `resolver` e `proxy_pass`.
+- CSP bloqueando recursos: mantenha `index.html` sem scripts externos; fontes via Google Fonts já permitidas.
+- PowerShell: evite `||`; prefira `if($LASTEXITCODE -ne 0){ ... }`.
