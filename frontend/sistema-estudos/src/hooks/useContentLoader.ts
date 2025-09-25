@@ -67,8 +67,17 @@ export const useContentLoader = () => {
         setLoading(true);
         // Busca o conteúdo principal
         // Public endpoint: no credentials to simplify CORS
-    const response = await fetch(`${API_BASE_URL}/conteudo_html/${id}`);
-        if (!response.ok) throw new Error("Conteúdo não encontrado");
+        const response = await fetch(`${API_BASE_URL}/conteudo_html/${id}`);
+        if (response.status === 404) {
+          // Conteúdo ausente: tratamos de forma branda
+          console.warn(`[useContentLoader] Conteúdo ${id} não encontrado (404)`);
+          toast.info("Conteúdo ainda não disponível.");
+          setConteudo(null);
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(`Falha ao carregar conteúdo (status ${response.status})`);
+        }
         let data: any;
         const ct = response.headers.get('content-type') || '';
         if (ct.includes('application/json')) {
@@ -103,6 +112,7 @@ export const useContentLoader = () => {
         }
 
       } catch (error) {
+        // Erros inesperados (rede, parse, 5xx)
         toast.error("Erro ao carregar o conteúdo ou dados locais.");
         console.error("Erro em useContentLoader:", error);
         setConteudo(null);
