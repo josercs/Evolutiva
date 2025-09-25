@@ -10,6 +10,7 @@ Plataforma moderna para estudantes do ensino médio: trilhas de estudo, plano pe
 
 1. Visão Geral
 2. Início Rápido (2 cliques)
+   2.1 Sequência Detalhada de Inicialização (Frontend, Backend, Docker)
 3. Estrutura do Projeto
 4. Requisitos
 5. Ambiente & Execução Manual
@@ -77,6 +78,126 @@ Diagnóstico Docker pipe:
 ```powershell
 start-easy.bat -Diag
 ```
+
+### 2.1 Sequência Detalhada de Inicialização (Frontend, Backend, Docker)
+
+Este guia cobre três modos: (A) Stack completa via Docker, (B) Modo híbrido (backend Docker + frontend local), (C) Modo totalmente local (sem containers). Inclui verificação e troubleshooting rápido.
+
+#### Pré-requisitos
+- Docker Desktop instalado e em execução (para modos A/B).
+- Node.js 18+ e Python 3.11+ instalados (para modos B/C e desenvolvimento geral).
+- Porta 80 livre (ou usar `HTTP_PORT`). Para conflitos (IIS/Skype): defina `$Env:HTTP_PORT=8080`.
+
+#### Passo 0: Clonar e preparar variáveis
+```powershell
+git clone https://github.com/josercs/Evolutiva.git
+cd Evolutiva
+Copy-Item .env.example .env
+# Edite .env conforme necessidade (SECRET_KEY, JWT_SECRET_KEY, etc.)
+```
+
+#### Modo A – Docker Completo (recomendado)
+1. (Opcional) Limpeza rápida (evitar caches antigos):
+   ```powershell
+   ./scripts/cleanup-caches.ps1 -Python -Dist
+   ```
+2. Subir stack (frontend + api + db + redis + nginx):
+   ```powershell
+   .\start-easy.bat  # ou ./scripts/dev-up.ps1
+   ```
+3. Aguardar logs (opcional):
+   ```powershell
+   docker compose ps
+   docker logs api --tail 30
+   docker logs nginx --tail 20
+   ```
+4. Acessar a aplicação: `http://localhost` (ou `http://localhost:8080` se usou HTTP_PORT).
+5. Healthcheck direto (via Nginx proxy):
+   ```powershell
+   curl http://localhost/api/health
+   ```
+6. Se frontend estiver vazio, siga "Troubleshooting Frontend Ausente".
+
+#### Modo B – Híbrido (Backend em Docker, Frontend Local)
+Use quando quer HMR rápido do Vite mas manter DB/Redis isolados.
+1. Subir somente serviços infra + api (sem build container se quiser):
+   ```powershell
+   $Env:HTTP_PORT=8080
+   docker compose up -d db redis api
+   ```
+2. Verificar API:
+   ```powershell
+   curl http://localhost:8080/api/health  # se nginx não estiver ativo ainda, usar porta interna
+   # OU acessar direto o container API se exposto (ajuste compose se necessário)
+   ```
+3. Rodar frontend local:
+   ```powershell
+   cd frontend/sistema-estudos
+   npm ci
+   npm run dev
+   ```
+4. Ajustar chamadas API: frontend usa `/api`. Como não está rodando nginx, você pode:
+   - Executar também o nginx (`docker compose up -d nginx`) para manter a mesma origem.
+   - OU configurar variável Vite `VITE_API_URL=http://127.0.0.1:5000/api` (se acessar API direta).
+5. Acessar: `http://localhost:5173` (ou URL indicada pelo Vite) e confirmar `/api/user/me` após login.
+
+#### Modo C – Totalmente Local (sem Docker)
+1. Backend:
+   ```powershell
+   cd backend
+   python -m venv venv
+   .\venv\Scripts\Activate.ps1
+   pip install -r requirements.txt
+   set USE_SQLITE=1  # PowerShell: $Env:USE_SQLITE='1'
+   cd src
+   python main.py
+   ```
+2. Frontend (novo terminal):
+   ```powershell
+   cd frontend/sistema-estudos
+   npm ci
+   npm run dev
+   ```
+3. Acessar: `http://localhost:5173` | API: `http://127.0.0.1:5000`
+4. Healthcheck: `curl http://127.0.0.1:5000/api/health`
+
+#### Sequência Recomendada (Resumo Visual)
+| Objetivo | Comando Principal | URL Final |
+|----------|-------------------|-----------|
+| Docker completo | `start-easy.bat` | http://localhost |
+| Híbrido | `docker compose up -d db redis api nginx` + `npm run dev` | http://localhost / http://localhost:5173 |
+| Local puro | `python main.py` + `npm run dev` | http://localhost:5173 |
+
+#### Verificações Essenciais Pós-Start
+1. API: `curl http://localhost/api/ping` → `{ "status": "ok" }` ou similar.
+2. Autenticação: POST `/api/auth/login` retorna tokens.
+3. Conteúdo: GET `/api/conteudos/materia/1` responde lista (se seed existente).
+4. Progresso (compat): `GET /api/progress` → JSON com mensagem (evita 404).
+5. CSP sem bloqueios inesperados (DevTools > Console): se bloquear fontes legítimas, ajustar `infra/nginx/nginx.conf`.
+
+#### Troubleshooting Rápido
+| Sintoma | Causa Comum | Ação |
+|--------|-------------|------|
+| ERR_CONNECTION_REFUSED | Porta 80 ocupada ou nginx parado | Defina `HTTP_PORT=8080`; `docker compose up -d nginx` |
+| 404 /api/user/me | Não logado / token ausente | Refazer login; verificar Authorization header |
+| 429 em /api/user/me | Limite padrão antigo | Confirmar nova config (reiniciar api) ou ajustar env `YT_RATE_LIMIT` |
+| Frontend em branco | Volume webroot vazio | Rodar build: `scripts/build-frontend.ps1` |
+| CSP bloqueando fonte | Domínio ausente em CSP | Editar diretivas style-src/font-src no nginx.conf |
+| 404 /api/conteudo_html/{id} | ID inexistente na base | Ver seed / inserir SubjectContent |
+
+#### Parar / Limpar
+```powershell
+docker compose down
+docker compose down -v  # inclui volumes (cuidado – apaga dados)
+```
+
+#### Próximos Passos Após Primeiro Start
+- Criar usuário → `/api/auth/register`.
+- Completar onboarding → fluxo SPA /onboarding.
+- Validar plano de estudo `/api/planos/me`.
+- Executar testes rápidos: `pytest backend/src/tests/test_import_smoke.py::test_core_imports -q`.
+
+---
 
 ---
 
@@ -603,3 +724,48 @@ Contribuições e melhorias são bem-vindas.
 - 502 entre Nginx e API: valide `api:5000` de dentro do container Nginx; confira `resolver` e `proxy_pass`.
 - CSP bloqueando recursos: mantenha `index.html` sem scripts externos; fontes via Google Fonts já permitidas.
 - PowerShell: evite `||`; prefira `if($LASTEXITCODE -ne 0){ ... }`.
+
+### Troubleshooting Frontend Ausente
+Se http://localhost não mostrar a SPA (página em branco ou listagem vazia):
+1. Garantir Docker ativo: `docker info`
+2. Criar (se faltar) volume webroot: `docker volume create sistema_estudos_core_webroot`
+3. Rodar build:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-frontend.ps1
+```
+4. Verificar conteúdo no Nginx:
+```powershell
+docker compose ps -q nginx | % { docker exec $_ ls -1 /usr/share/nginx/html | Select-Object -First 20 }
+```
+Fallback local sem Docker:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-frontend.ps1 -Local
+```
+
+### Porta 80 recusada / Conexão recusada
+Se http://localhost/ (ou /login) retorna ERR_CONNECTION_REFUSED:
+1. Verifique se Docker está ativo: `docker info`
+2. Verifique containers: `docker compose ps`
+3. Logs Nginx: `docker logs nginx --tail 50`
+4. Porta 80 já em uso (IIS / outro serviço). Rode com porta alternativa:
+```powershell
+$Env:HTTP_PORT=8080; docker compose up -d nginx api
+```
+Acesse: http://localhost:8080/login
+Para tornar permanente, adicione `HTTP_PORT=8080` ao seu `.env`.
+5. Se frontend vazio, veja seção "Troubleshooting Frontend Ausente".
+
+### Erro Nginx: "resolving names at run time requires upstream ... in shared memory"
+Se logs repetem esse erro e o container reinicia:
+1. Atualize repo (config já ajustada removendo bloco `upstream api_upstream`).
+2. Ou edite `infra/nginx/nginx.conf` removendo o bloco `upstream` com `resolve` e deixe o `proxy_pass` direto:
+```
+location /api/ {
+   proxy_pass http://api:5000$request_uri;
+   ...
+}
+```
+3. Recrie container:
+```powershell
+docker compose up -d --force-recreate nginx
+```

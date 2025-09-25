@@ -167,8 +167,11 @@ def create_app():
         logging.warning('CORS: origens de desenvolvimento detectadas em produção; revise FRONTEND_ORIGINS.')
 
     # Rate Limiter
-    lmts_default = os.getenv('YT_RATE_LIMIT', '60 per hour')
-    lmts_burst = os.getenv('YT_RATE_BURST', '10 per minute')
+    # A limitação original (60/hour) era muito agressiva para endpoints frequentemente consultados
+    # como /api/user/me causando 429 no frontend. Aumentamos o padrão para algo mais razoável.
+    # Pode ser sobrescrito via YT_RATE_LIMIT (ex: "300 per hour;50 per minute") e YT_RATE_BURST.
+    lmts_default = os.getenv('YT_RATE_LIMIT', '600 per hour;60 per minute')
+    lmts_burst = os.getenv('YT_RATE_BURST', '120 per minute')
     if 'Limiter' in globals() and Limiter is not None:
         limiter = Limiter(get_remote_address, app=app, default_limits=[lmts_default])
     else:

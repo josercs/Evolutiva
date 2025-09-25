@@ -11,6 +11,18 @@ progress_bp = Blueprint('progress', __name__, url_prefix='/api/progress')
 # Legacy alias blueprint for Portuguese path expected by frontend
 progresso_bp = Blueprint('progresso', __name__, url_prefix='/api/progresso')
 
+# Compat root endpoints (antigo /api/progress e /api/progresso sem sufixo)
+@progress_bp.route('', methods=['GET'])
+def progress_root():
+    """Retorna um resumo mínimo de progresso geral.
+    Evita 404 no frontend legado que chamava apenas /api/progress.
+    """
+    return jsonify({"ok": True, "message": "Use endpoints detalhados em /api/progress/..."})
+
+@progresso_bp.route('', methods=['GET'])
+def progresso_root():
+    return progress_root()
+
 @progress_bp.route('/materias/<int:user_id>/<int:curso_id>', methods=['GET'])
 def progresso_materias(user_id, curso_id):
     """
