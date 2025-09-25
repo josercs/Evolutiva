@@ -56,8 +56,10 @@ COURSE_TO_MATERIAS = {
 }
 
 BASIC_CONTENT = [
-    {"subject": "Matemática", "topic": "Frações", "descricao": "Introdução a frações", "dificuldade": 1},
-    {"subject": "Ciências", "topic": "Sistema Solar", "descricao": "Planetas e características", "dificuldade": 1},
+    {"subject": "Matemática", "topic": "Frações", "descricao": "Introdução a frações", "dificuldade": 1,
+     "content_html": "<h1>Frações</h1><p>Uma fração representa partes iguais de um todo. Ex: 1/2.</p>"},
+    {"subject": "Ciências", "topic": "Sistema Solar", "descricao": "Planetas e características", "dificuldade": 1,
+     "content_html": "<h1>Sistema Solar</h1><p>Conjunto de planetas que orbitam o Sol. Ex: Mercúrio até Netuno.</p>"},
 ]
 
 ADMIN_EMAIL = os.getenv("SEED_ADMIN_EMAIL", "admin@example.com")
@@ -105,9 +107,18 @@ def seed():
                     inserted["vinculos"] += 1
 
         for cont in BASIC_CONTENT:
-            if not db.session.query(SubjectContent).filter_by(subject=cont["subject"], topic=cont["topic"]).first():
+            existing = db.session.query(SubjectContent).filter_by(subject=cont["subject"], topic=cont["topic"]).first()
+            if not existing:
                 db.session.add(SubjectContent(**cont))
                 inserted["conteudos"] += 1
+            else:
+                # Preenche HTML se ainda vazio
+                updated = False
+                if not getattr(existing, 'content_html', None) and cont.get('content_html'):
+                    existing.content_html = cont['content_html']
+                    updated = True
+                if updated:
+                    db.session.add(existing)
         # Admin user
         if not db.session.query(User).filter_by(email=ADMIN_EMAIL).first():
             admin = User(name="Admin", email=ADMIN_EMAIL, role="admin")

@@ -184,6 +184,9 @@ Use quando quer HMR rápido do Vite mas manter DB/Redis isolados.
 | Frontend em branco | Volume webroot vazio | Rodar build: `scripts/build-frontend.ps1` |
 | CSP bloqueando fonte | Domínio ausente em CSP | Editar diretivas style-src/font-src no nginx.conf |
 | 404 /api/conteudo_html/{id} | ID inexistente na base | Ver seed / inserir SubjectContent |
+| 404 fonte .woff2 | Fonte externa bloqueada por CSP ou extensão injetando | Ver Console > aba Network; ajustar CSP ou desativar extensão |
+| Requisições para ext-cdn.cuponomia (CORS) | Extensão de navegador (cashback/cupom) | Ignorar em dev; testar em janela anônima |
+| ERR_INVALID_URL (data:image / chrome-extension) | Extensão injetando script | Abrir aba anônima sem extensões para validar se é ruído |
 
 #### Parar / Limpar
 ```powershell

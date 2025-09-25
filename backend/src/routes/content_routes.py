@@ -34,6 +34,28 @@ def concluir_conteudo():
         db.session.commit()
     return jsonify({"success": True})
 
+# Lista simplificada de conteúdos (id, subject, topic, materia) para UI descobrir IDs válidos
+@content_bp.route('/list', methods=['GET'])
+def listar_conteudos_basico():
+    rows = (
+        db.session.query(
+            SubjectContent.id,
+            SubjectContent.subject,
+            SubjectContent.topic,
+            HorariosEscolares.materia,
+        )
+        .join(HorariosEscolares, SubjectContent.materia_id == HorariosEscolares.id, isouter=True)
+        .order_by(SubjectContent.id.asc())
+        .limit(500)
+        .all()
+    )
+    return jsonify({
+        "conteudos": [
+            {"id": r[0], "subject": r[1], "topic": r[2], "materia": r[3]} for r in rows
+        ],
+        "total": len(rows)
+    })
+
 # Public endpoint to fetch full HTML content by id (compat with existing frontend)
 @content_public_bp.route('/api/conteudo_html/<int:conteudo_id>', methods=['GET'])
 def get_conteudo_html(conteudo_id: int):
